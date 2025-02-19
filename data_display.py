@@ -1,8 +1,8 @@
 from sqlite3 import Error
 import tkinter.ttk as ttk
 import tkinter as tk
+from tkinter import messagebox
 import sqlite3
-
 
 column_headers = {
     "id": "ID",
@@ -65,4 +65,17 @@ def display_data(table_name, content_frame):
 
         conn.close()
     except Error as e:
-        print(f"An error occurred: {e}")
+        messagebox.showerror("Error", f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    # Example usage of display_data
+    root = tk.Tk()
+    root.title("Data Display Example")
+    root.geometry("800x600")
+
+    content_frame = ttk.Frame(root)
+    content_frame.pack(fill=tk.BOTH, expand=True)
+
+    display_data("cat", content_frame)
+
+    root.mainloop()

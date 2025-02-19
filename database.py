@@ -9,7 +9,7 @@ class Database:
     def create_tables(self):
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS cat (
-                id INTEGER PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL
             )
         ''')
@@ -18,13 +18,14 @@ class Database:
             CREATE TABLE IF NOT EXISTS currency (
                 id INTEGER PRIMARY KEY,
                 name TEXT NOT NULL,
-                exchange_rate REAL NOT NULL
+                exchange_rate REAL NOT NULL,
+                UNIQUE(name)
             )
         ''')
 
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS accounts (
-                id INTEGER PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 cat_id INTEGER NOT NULL,
                 default_currency_id INTEGER,
@@ -34,44 +35,71 @@ class Database:
         ''')
 
         self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS ccards(
+            CREATE TABLE IF NOT EXISTS ccards (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_id INTEGER,
-                credit_limit REAL,
-                close_day INTEGER,
-                due_day INTEGER,
-                balance REAL
+                account_id INTEGER NOT NULL,
+                credit_limit REAL NOT NULL,
+                close_day INTEGER NOT NULL,
+                due_day INTEGER NOT NULL,
+                balance REAL NOT NULL,
+                FOREIGN KEY (account_id) REFERENCES accounts (id)
             )
         ''')
 
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS transactions (
-                id INTEGER PRIMARY KEY,
-                date DATE NOT NULL,
-                description TEXT
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                description TEXT,
+                currency_id INTEGER NOT NULL,
+                FOREIGN KEY (currency_id) REFERENCES currency (id)
             )
         ''')
 
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS transaction_lines (
-                id INTEGER PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 transaction_id INTEGER NOT NULL,
                 account_id INTEGER NOT NULL,
                 debit REAL,
                 credit REAL,
-                amount REAL NOT NULL,
-                currency_id INTEGER NOT NULL,
+                date DATE NOT NULL,
                 FOREIGN KEY (transaction_id) REFERENCES transactions (id),
-                FOREIGN KEY (account_id) REFERENCES accounts (id),
-                FOREIGN KEY (currency_id) REFERENCES currency (id)
+                FOREIGN KEY (account_id) REFERENCES accounts (id)
             )
         ''')
+
+        # Create indexes
+        self.cursor.execute('''CREATE INDEX IF NOT EXISTS idx_ccards_account_id ON ccards (account_id)''')
+        self.cursor.execute(
+            '''CREATE INDEX IF NOT EXISTS idx_transaction_lines_account_id ON transaction_lines (account_id)''')
+        self.cursor.execute(
+            '''CREATE INDEX IF NOT EXISTS idx_transaction_lines_transaction_id ON transaction_lines (transaction_id)''')
+
+        # Create triggers
+        self.cursor.execute('''CREATE TRIGGER IF NOT EXISTS ensure_debit_credit_positive
+                               BEFORE INSERT ON transaction_lines
+                               FOR EACH ROW
+                               BEGIN
+                                   SELECT CASE
+                                       WHEN (NEW.debit + NEW.credit) <= 0 THEN
+                                           RAISE(ABORT, 'Debit + Credit must be greater than 0')
+                                   END;
+                               END;''')
+
+        self.cursor.execute('''CREATE TRIGGER IF NOT EXISTS ensure_debit_credit_positive_update
+                               BEFORE UPDATE ON transaction_lines
+                               FOR EACH ROW
+                               BEGIN
+                                   SELECT CASE
+                                       WHEN (NEW.debit + NEW.credit) <= 0 THEN
+                                           RAISE(ABORT, 'Debit + Credit must be greater than 0')
+                                   END;
+                               END;''')
 
         self.conn.commit()
 
     def close_connection(self):
         self.conn.close()
-
 
     def insert_category(self, name):
         self.cursor.execute("INSERT INTO cat (name) VALUES (?)", (name,))
@@ -93,17 +121,35 @@ class Database:
         self.conn.commit()
         return self.cursor.lastrowid
 
-    def insert_transaction(self, date, description=None):
-        self.cursor.execute("INSERT INTO transactions (date, description) VALUES (?, ?)", (date, description))
+
+    def insert_transaction(self, description, currency_id):
+        self.cursor.execute("INSERT INTO transactions (description, currency_id) VALUES (?, ?)",
+                            (description, currency_id))
         self.conn.commit()
         return self.cursor.lastrowid
 
-    def insert_transaction_line(self, transaction_id, account_id, amount, debit=None, credit=None, currency_id=None):
+    def get_transactions(self):
+        self.cursor.execute("SELECT * FROM transactions")
+        return self.cursor.fetchall()
+
+
+    def insert_transaction_line(self, transaction_id, account_id, debit=None, credit=None, date=None):
         if debit is None and credit is None:
             raise ValueError("Either debit or credit must be specified")
-        self.cursor.execute("INSERT INTO transaction_lines (transaction_id, account_id, debit, credit, amount, currency_id) VALUES (?, ?, ?, ?, ?, ?)", (transaction_id, account_id, debit, credit, amount, currency_id))
+        self.cursor.execute(
+            "INSERT INTO transaction_lines (transaction_id, account_id, debit, credit, date) VALUES (?, ?, ?, ?, ?)",
+            (transaction_id, account_id, debit, credit, date))
         self.conn.commit()
         return self.cursor.lastrowid
+
+    def get_transaction_lines(self, transaction_id):
+        self.cursor.execute('''
+            SELECT tl.id, tl.transaction_id, tl.account_id, tl.debit, tl.credit, tl.date, t.currency_id
+            FROM transaction_lines tl
+            JOIN transactions t ON tl.transaction_id = t.id
+            WHERE tl.transaction_id = ?
+        ''', (transaction_id,))
+        return self.cursor.fetchall()
 
     def get_categories(self):
         self.cursor.execute("SELECT name FROM cat")
@@ -128,4 +174,7 @@ class Database:
     def get_account_id(self, name):
         self.cursor.execute("SELECT id FROM accounts WHERE name = ?", (name,))
         return self.cursor.fetchone()[0]
+
+# Initialize the database
+db = Database('finance.db')
 
