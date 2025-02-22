@@ -1,0 +1,98 @@
+QMainWindow {
+    background-color: #2e2e2e;
+    color: #ffffff;
+}
+
+QMenuBar {
+    background-color: #2e2e2e;
+    color: #ffffff;
+}
+
+QMenuBar::item {
+    background-color: #2e2e2e;
+    color: #ffffff;
+}
+
+QMenuBar::item:selected {
+    background-color: #575757;
+}
+
+QMenu {
+    background-color: #2e2e2e;
+    color: #ffffff;
+}
+
+QMenu::item:selected {
+    background-color: #575757;
+}
+
+QToolBar {
+    background-color: #2e2e2e;
+    color: #ffffff;
+    border: none;  /* Remove the white line above the toolbar */
+}
+
+QTreeView {
+    background-color: #3c3c3c;
+    color: #ffffff;
+    selection-background-color: #575757;
+    selection-color: #ffffff;
+    gridline-color: #444444;  /* Ensure grid lines match dark mode */
+    border: 1px solid #2e2e2e;  /* Add a border to ensure no white areas */
+}
+
+QHeaderView::section {
+    background-color: #2e2e2e;
+    color: #ffffff;
+    border: 1px solid #444444;
+}
+
+QTableView {
+    background-color: #3c3c3c;
+    color: #ffffff;
+    gridline-color: #444444;
+    selection-background-color: #575757;
+    selection-color: #ffffff;
+}
+
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
+    background-color: #3c3c3c;
+    color: #ffffff;
+    border: 1px solid #444444;
+}
+
+QPushButton {
+    background-color: #484848;  /* Change button background color */
+    color: #ffffff;  /* Ensure button text is white */
+    border: 1px solid #444444;
+}
+
+QPushButton:hover {
+    background-color: #575757;
+}
+
+QPushButton:pressed {
+    background-color: #444444;
+}
+
+QCheckBox {
+    spacing: 1px; /* Adjust spacing as needed */
+    padding-right: 1px; /* Ensure enough space for the indicator */
+}
+
+QCheckBox::indicator {
+    width: 100px;
+    height: 50px;
+}
+
+QCheckBox::indicator:checked {
+    image: url(checked.png); /* Ensure this path is correct */
+}
+
+QCheckBox::indicator:unchecked {
+    image: url(unchecked.png); /* Ensure this path is correct */
+}
+
+QSplitter::handle {
+    background-color: #484848;  /* Match the separator to dark mode */
+}

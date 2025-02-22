@@ -1,81 +1,85 @@
-from sqlite3 import Error
-import tkinter.ttk as ttk
-import tkinter as tk
-from tkinter import messagebox
 import sqlite3
-
-column_headers = {
-    "id": "ID",
-    "account_name": "Account Name",
-    "category_name": "Category Name",
-    "description": "Description",
-    # Add more column names as needed
-}
+from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeView, QVBoxLayout, QWidget, QMessageBox, QToolBar, QAction, QTableView, QHeaderView
+from PyQt5.QtGui import QStandardItemModel, QStandardItem
+from PyQt5.QtCore import Qt
+from column_headers import column_headers
+from custom_queries import custom_queries
 
 def display_data(table_name, content_frame):
     # Clear the content frame
-    for widget in content_frame.winfo_children():
-        widget.destroy()
+    layout = content_frame.layout()
+    if layout is not None:
+        for i in reversed(range(layout.count())):
+            widget = layout.itemAt(i).widget()
+            if widget:
+                widget.deleteLater()
+    else:
+        layout = QVBoxLayout(content_frame)
+        content_frame.setLayout(layout)
 
-    # Create a frame to hold the menu bar and table
-    frame = ttk.Frame(content_frame)
-    frame.pack(fill=tk.BOTH, expand=True)
+    # Create a toolbar with add, edit, and delete buttons
+    toolbar = QToolBar()
+    add_action = QAction("Add", content_frame)
+    toolbar.addAction(add_action)
 
-    # Create a menu bar with add, edit, and delete buttons
-    menu_bar = ttk.Frame(frame)
-    menu_bar.pack(fill=tk.X)
+    edit_action = QAction("Edit", content_frame)
+    toolbar.addAction(edit_action)
 
-    add_button = ttk.Button(menu_bar, text="Add")
-    add_button.pack(side=tk.LEFT)
+    delete_action = QAction("Delete", content_frame)
+    toolbar.addAction(delete_action)
 
-    edit_button = ttk.Button(menu_bar, text="Edit")
-    edit_button.pack(side=tk.LEFT)
-
-    delete_button = ttk.Button(menu_bar, text="Delete")
-    delete_button.pack(side=tk.LEFT)
+    layout.addWidget(toolbar)
 
     # Create a table to display the data
-    data_table = ttk.Treeview(frame, show="headings")
-    data_table.pack(fill=tk.BOTH, expand=True)
+    data_table = QTableView()
+    layout.addWidget(data_table)
 
     try:
         conn = sqlite3.connect("finance.db")
         cursor = conn.cursor()
 
-        cursor.execute(f"SELECT * FROM {table_name}")
+        # Use custom query if available; otherwise, use the general query
+        query = custom_queries.get(table_name, f"SELECT * FROM {table_name}")
+        cursor.execute(query)
 
         # Get the column names from the cursor
         column_names = [description[0] for description in cursor.description]
 
-        # Create the table columns
-        data_table["columns"] = column_names
-
-        # Format the columns
-        for column in column_names:
-            data_table.column(column, anchor=tk.W, width=200)
-
-        # Create headings for the columns
-        for column in column_names:
-            data_table.heading(column, text=column_headers.get(column, column))
+        # Set up the model for the table view
+        model = QStandardItemModel()
+        model.setHorizontalHeaderLabels([column_headers.get(column, column) for column in column_names])
+        data_table.setModel(model)
+        # data_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         # Insert the data into the table
         rows = cursor.fetchall()
         for row in rows:
-            data_table.insert("", "end", values=row)
+            items = [QStandardItem(str(item)) for item in row]
+            model.appendRow(items)
+
+        # Resize columns to fit content and header
+        header = data_table.horizontalHeader()
+        for col in range(len(column_names)):
+            header.setSectionResizeMode(col, QHeaderView.Interactive)  # Enable manual resizing
+            header.resizeSection(col, max(data_table.sizeHintForColumn(col), header.sectionSizeHint(col)))
+
+        # Adjust the last column to take up any extra space
+        header.setSectionResizeMode(len(column_names) - 1, QHeaderView.Stretch)
 
         conn.close()
-    except Error as e:
-        messagebox.showerror("Error", f"An error occurred: {e}")
+    except sqlite3.Error as e:
+        QMessageBox.critical(content_frame, "Error", f"An error occurred: {e}")
 
 if __name__ == "__main__":
-    # Example usage of display_data
-    root = tk.Tk()
-    root.title("Data Display Example")
-    root.geometry("800x600")
+    app = QApplication([])
+    window = QMainWindow()
+    window.setWindowTitle("Data Display Example")
+    window.resize(800, 600)
 
-    content_frame = ttk.Frame(root)
-    content_frame.pack(fill=tk.BOTH, expand=True)
+    content_frame = QWidget()
+    window.setCentralWidget(content_frame)
 
     display_data("cat", content_frame)
 
-    root.mainloop()
+    window.show()
+    app.exec_()

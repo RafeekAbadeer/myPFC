@@ -1,117 +1,152 @@
-import tkinter as tk
-from tkinter import ttk
-from tkinter import messagebox
+import sys
+from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeView, QVBoxLayout, QToolBar, QWidget, QAction, QMessageBox, QMenuBar, QSplitter, QFrame, QInputDialog, QLineEdit, QComboBox, QPushButton, QSizePolicy, QLabel, QToolButton, QCheckBox
+from PyQt5.QtGui import QStandardItemModel, QStandardItem
+from PyQt5.QtCore import Qt
 from database import Database
 from data_display import display_data
 
-
-class Application(tk.Tk):
+class Application(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.title("Personal Finance Manager")
-        self.geometry("800x600")
+        self.setWindowTitle("Personal Finance Manager")
+        self.resize(800, 600)
         self.database = Database("finance.db")
-
-        # Create a paned window
-        self.paned_window = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
-        self.paned_window.pack(fill=tk.BOTH, expand=True)
-
-        # Create a frame for the treeview
-        self.tree_frame = ttk.Frame(self.paned_window)
-        self.paned_window.add(self.tree_frame, weight=1)
-
-        # Create a treeview
-        self.tree = ttk.Treeview(self.tree_frame, show="tree")
-        self.tree.pack(fill=tk.BOTH, expand=True)
-
-        # Create a frame for the content
-        self.content_frame = ttk.Frame(self.paned_window)
-        self.paned_window.add(self.content_frame, weight=3)
-
-        # Create the treeview structure
-        self.tree["columns"] = ("",)
-        self.tree.column("#0", width=200, minwidth=200, stretch=tk.NO)
-        self.tree.column("", width=0, minwidth=0, stretch=tk.NO)
-        self.tree.heading("#0", text="Tree", anchor=tk.W)
-
-        # Add treeview items
-        transactions_item = self.tree.insert("", "end", text="Transactions")
-        settings_item = self.tree.insert("", "end", text="Settings")
-
-        # Add sub-items
-        self.tree.insert(settings_item, "end", text="Categories")
-        self.tree.insert(settings_item, "end", text="Accounts")
-        self.tree.insert(settings_item, "end", text="Credit Cards")
-        self.tree.insert(transactions_item, "end", text="Transaction List")
-        self.tree.insert(settings_item, "end", text="Currencies")
-
-        # Remove expand button and display all items
-        self.tree.item(transactions_item, open=True)
-        self.tree.item(settings_item, open=True)
-
-        # Alternate row colors
-        for i, item in enumerate(self.tree.get_children()):
-            if i % 2 == 0:
-                self.tree.item(item, tags=("even",))
-            else:
-                self.tree.item(item, tags=("odd",))
-
-        # Configure tags for alternating row colors
-        self.tree.tag_configure("even", background="#f0f0f0")
-        self.tree.tag_configure("odd", background="#ffffff")
-
-        # Configure the paned window to have a 20/80 ratio
-        self.paned_window.pane(0, weight=1)
-        self.paned_window.pane(1, weight=100)
-
-        # Bind the treeview selection event
-        self.tree.bind("<<TreeviewSelect>>", self.tree_selection_event)
-
+        self.dark_mode_enabled = False  # Track the dark mode state
         self.create_menu()
+        self.create_toolbar()
+        self.create_widgets()
 
     def create_menu(self):
-        menubar = tk.Menu(self)
-        self.config(menu=menubar)
+        menu_bar = self.menuBar()
 
-        file_menu = tk.Menu(menubar, tearoff=0)
-        file_menu.add_command(label="Exit", command=self.destroy)
-        menubar.add_cascade(label="File", menu=file_menu)
+        file_menu = menu_bar.addMenu("File")
+        exit_action = QAction("Exit", self)
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
 
-        add_menu = tk.Menu(menubar, tearoff=0)
-        add_menu.add_command(label="Category", command=self.add_category)
-        add_menu.add_command(label="Currency", command=self.add_currency)
-        add_menu.add_command(label="Account", command=self.add_account)
-        add_menu.add_command(label="Credit Card", command=self.add_credit_card)
-        add_menu.add_command(label="Transaction", command=self.add_transaction)
-        menubar.add_cascade(label="Add", menu=add_menu)
+        add_menu = menu_bar.addMenu("Add")
+        add_menu.addAction("Category", self.add_category)
+        add_menu.addAction("Currency", self.add_currency)
+        add_menu.addAction("Account", self.add_account)
+        add_menu.addAction("Credit Card", self.add_credit_card)
+        add_menu.addAction("Transaction", self.add_transaction)
 
-        edit_menu = tk.Menu(menubar, tearoff=0)
-        # Add edit commands here
-        menubar.add_cascade(label="Edit", menu=edit_menu)
+        help_menu = menu_bar.addMenu("Help")
+        help_menu.addAction("About", self.show_about)
 
-        about_menu = tk.Menu(menubar, tearoff=0)
-        about_menu.add_command(label="About", command=self.show_about)
-        menubar.add_cascade(label="About", menu=about_menu)
+    def create_toolbar(self):
+        self.toolbar = QToolBar()
+        self.addToolBar(Qt.TopToolBarArea, self.toolbar)
 
-    def tree_selection_event(self, event):
-        selected_item = self.tree.selection()[0]
-        selected_text = self.tree.item(selected_item, "text")
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.toolbar.addWidget(spacer)
 
-        # Clear the content frame
-        for widget in self.content_frame.winfo_children():
-            widget.destroy()
+        self.dark_mode_switch = QCheckBox()
+        self.dark_mode_switch.setText("")
+        #self.dark_mode_switch.setStyleSheet("")  # Ensure no conflicting styles
+        self.dark_mode_switch.setChecked(False)  # Initial state
+        self.dark_mode_switch.stateChanged.connect(self.toggle_dark_mode)
+        self.toolbar.addWidget(self.dark_mode_switch)
 
-        # Display the corresponding content
-        if selected_text == "Categories":
-            self.display_categories(self.content_frame)
-        elif selected_text == "Accounts":
-            self.display_accounts(self.content_frame)
-        elif selected_text == "Credit Cards":
-            self.display_credit_cards(self.content_frame)
-        elif selected_text == "Transaction List":
-            self.display_transaction_list(self.content_frame)
-        elif selected_text == "Currencies":
-            self.display_currencies(self.content_frame)
+        # Apply the stylesheet to ensure the switch is styled correctly
+        self.dark_mode_switch.setStyleSheet(open("dark_mode.qss").read())
+
+    def create_widgets(self):
+        splitter = QSplitter(Qt.Horizontal)
+
+        self.tree = QTreeView()
+        self.tree.setHeaderHidden(True)
+        splitter.addWidget(self.tree)
+
+        self.content_frame = QFrame()
+        splitter.addWidget(self.content_frame)
+        splitter.setStretchFactor(1, 3)
+
+        self.setCentralWidget(splitter)
+        self.setup_treeview()
+        self.tree.selectionModel().selectionChanged.connect(self.tree_selection_event)
+
+    def toggle_dark_mode(self, state):
+        try:
+            print("Toggling Dark Mode...")  # Debug statement
+            if state == Qt.Checked:
+                self.apply_dark_mode()
+                self.dark_mode_switch.setText("")
+            else:
+                self.remove_dark_mode()
+                self.dark_mode_switch.setText("")
+            print("Dark Mode Toggled Successfully.")  # Debug statement
+        except Exception as e:
+            print(f"Error in toggle_dark_mode: {e}")  # Debug statement
+
+    def apply_dark_mode(self):
+        try:
+            print("Applying Dark Mode...")  # Debug statement
+            with open("dark_mode.qss", "r") as f:
+                self.setStyleSheet(f.read())
+            self.dark_mode_enabled = True
+            print("Dark Mode Applied.")  # Debug statement
+        except Exception as e:
+            print(f"Error in apply_dark_mode: {e}")  # Debug statement
+
+    def remove_dark_mode(self):
+        try:
+            print("Removing Dark Mode...")  # Debug statement
+            self.setStyleSheet("")  # Remove the stylesheet to switch to light mode
+            self.dark_mode_enabled = False
+            print("Dark Mode Removed.")  # Debug statement
+        except Exception as e:
+            print(f"Error in remove_dark_mode: {e}")  # Debug statement
+
+    def setup_treeview(self):
+        model = QStandardItemModel()
+        root_node = model.invisibleRootItem()
+
+        transactions_item = QStandardItem("Transactions")
+        settings_item = QStandardItem("Settings")
+
+        root_node.appendRow(transactions_item)
+        root_node.appendRow(settings_item)
+
+        transactions_item.appendRow(QStandardItem("Transaction List"))
+        settings_item.appendRow(QStandardItem("Categories"))
+        settings_item.appendRow(QStandardItem("Accounts"))
+        settings_item.appendRow(QStandardItem("Credit Cards"))
+        settings_item.appendRow(QStandardItem("Currencies"))
+
+        self.tree.setModel(model)
+        self.tree.expandAll()
+
+    def tree_selection_event(self, selected, deselected):
+        try:
+            selected_index = self.tree.selectionModel().currentIndex()
+            selected_item = selected_index.model().itemFromIndex(selected_index).text()
+            print(f"Selected item: {selected_item}")  # Debug statement
+
+            layout = self.content_frame.layout()
+            if layout is not None:
+                for i in reversed(range(layout.count())):
+                    widget = layout.itemAt(i).widget()
+                    if widget is not None:
+                        widget.deleteLater()
+            else:
+                layout = QVBoxLayout()
+                self.content_frame.setLayout(layout)
+
+            if selected_item == "Categories":
+                self.display_categories(self.content_frame)
+            elif selected_item == "Accounts":
+                self.display_accounts(self.content_frame)
+            elif selected_item == "Credit Cards":
+                self.display_credit_cards(self.content_frame)
+            elif selected_item == "Transaction List":
+                self.display_transaction_list(self.content_frame)
+            elif selected_item == "Currencies":
+                self.display_currencies(self.content_frame)
+        except Exception as e:
+            print(f"Error in tree_selection_event: {e}")  # Debug statement
+            QMessageBox.critical(self, "Error", f"An error occurred: {e}")
 
     def display_categories(self, content_frame):
         display_data("cat", content_frame)
@@ -129,29 +164,29 @@ class Application(tk.Tk):
         display_data("currency", content_frame)
 
     def add_category(self):
-        self.open_input_window("Add Category", [("Category Name", "name")], self.database.insert_category)
+        self.open_input_dialog("Add Category", [("Category Name", "name")], self.database.insert_category)
 
     def add_currency(self):
-        self.open_input_window("Add Currency", [("Currency Name", "name"), ("Exchange Rate", "rate", float)],
+        self.open_input_dialog("Add Currency", [("Currency Name", "name"), ("Exchange Rate", "rate", float)],
                                self.database.insert_currency)
 
     def add_account(self):
-        self.open_input_window("Add Account",
+        self.open_input_dialog("Add Account",
                                [("Account Name", "name"), ("Category", "category", self.database.get_categories),
                                 ("Default Currency", "currency", self.database.get_currencies)],
                                self.database.insert_account)
 
     def add_credit_card(self):
         def save_credit_card(data):
-            credit_card_name = data['Credit Card Name']
-            close_day = data['Close Day']
-            due_day = data['Due Day']
-            credit_limit = data['Credit Limit']
+            credit_card_name = data['name']
+            close_day = data['close_day']
+            due_day = data['due_day']
+            credit_limit = data['credit_limit']
 
             # Get the Liability category ID
             liability_cat_id = self.database.get_category_id("Liability")
             if liability_cat_id is None:
-                messagebox.showerror("Error", "Liability category not found.")
+                QMessageBox.critical(self, "Error", "Liability category not found.")
                 return
 
             # Create a new account record
@@ -163,25 +198,24 @@ class Application(tk.Tk):
             # Create a new credit card record
             self.database.insert_credit_card(account_id, credit_limit, close_day, due_day)
 
-        self.open_input_window("Add Credit Card", [("Credit Card Name", "name"), ("Close Day", "close_day", int),
+        self.open_input_dialog("Add Credit Card", [("Credit Card Name", "name"), ("Close Day", "close_day", int),
                                                    ("Due Day", "due_day", int),
                                                    ("Credit Limit", "credit_limit", float)], save_credit_card)
 
-
     def add_transaction(self):
-        self.open_input_window("Add Transaction", [
+        self.open_input_dialog("Add Transaction", [
             ("Description", "description"),
             ("Currency", "currency", self.database.get_currencies)
         ], self.save_transaction)
 
     def save_transaction(self, data):
-        description = data['Description']
-        currency_id = self.database.get_currency_id(data['Currency'])
+        description = data['description']
+        currency_id = self.database.get_currency_id(data['currency'])
         transaction_id = self.database.insert_transaction(description, currency_id)
         self.add_transaction_lines(transaction_id)
 
     def add_transaction_lines(self, transaction_id):
-        self.open_input_window("Add Transaction Line", [
+        self.open_input_dialog("Add Transaction Line", [
             ("Account", "account", self.database.get_accounts),
             ("Debit", "debit", float, False),
             ("Credit", "credit", float, False),
@@ -189,54 +223,56 @@ class Application(tk.Tk):
         ], lambda data: self.save_transaction_line(transaction_id, data))
 
     def save_transaction_line(self, transaction_id, data):
-        account_id = self.database.get_account_id(data['Account'])
-        debit = data['Debit'] if 'Debit' in data else None
-        credit = data['Credit'] if 'Credit' in data else None
-        date = data['Date']
+        account_id = self.database.get_account_id(data['account'])
+        debit = data['debit'] if 'debit' in data else None
+        credit = data['credit'] if 'credit' in data else None
+        date = data['date']
         self.database.insert_transaction_line(transaction_id, account_id, debit, credit, date)
 
     def show_about(self):
-        messagebox.showinfo("About", "Personal Finance Manager\nVersion 1.0\nCopyright 2023")
+        QMessageBox.about(self, "About", "Personal Finance Manager\nVersion 1.0\nCopyright 2025")
 
-    def open_input_window(self, title, fields, save_command):
-        window = tk.Toplevel(self)
-        window.title(title)
+    def open_input_dialog(self, title, fields, save_command):
+        dialog = QWidget()
+        dialog.setWindowTitle(title)
+        layout = QVBoxLayout(dialog)
 
         entries = {}
-        for i, (label, name, *options) in enumerate(fields):
-            tk.Label(window, text=label).grid(row=i, column=0)
+        for label, name, *options in fields:
+            layout.addWidget(QLabel(label))
             if options:
                 var_type = options[0]
-                if var_type == self.database.get_categories or var_type == self.database.get_currencies:
-                    var = tk.StringVar(window)
-                    var.set(var_type()[0])
-                    menu = tk.OptionMenu(window, var, *var_type())
-                    menu.grid(row=i, column=1)
-                    entries[name] = var
+                if var_type in [self.database.get_categories, self.database.get_currencies]:
+                    combo = QComboBox(dialog)
+                    combo.addItems(var_type())
+                    layout.addWidget(combo)
+                    entries[name] = combo
                 else:
-                    entry = tk.Entry(window)
-                    if len(options) > 1 and not options[1]:  # Optional field
-                        entry.insert(0, "")
-                    else:
-                        entry.insert(0, "")
-                    entry.grid(row=i, column=1)
-                    entries[name] = (entry, var_type)
+                    line_edit = QLineEdit(dialog)
+                    line_edit.setValidator(var_type())
+                    layout.addWidget(line_edit)
+                    entries[name] = line_edit
             else:
-                entry = tk.Entry(window)
-                entry.insert(0, "")
-                entry.grid(row=i, column=1)
-                entries[name] = (entry, str)
+                line_edit = QLineEdit(dialog)
+                layout.addWidget(line_edit)
+                entries[name] = line_edit
+
+        save_button = QPushButton("Save", dialog)
+        layout.addWidget(save_button)
 
         def save_and_close():
             try:
-                data = {name: (var.get() if isinstance(var, tk.StringVar) else var[1](var[0].get())) for name, var in entries.items()}
+                data = {name: var.currentText() if isinstance(var, QComboBox) else var.text() for name, var in entries.items()}
                 save_command(data)
-                window.destroy()
+                dialog.close()
             except Exception as e:
-                messagebox.showerror("Error", str(e))
+                QMessageBox.critical(self, "Error", str(e))
 
-        tk.Button(window, text="Save", command=save_and_close).grid(row=len(fields), column=0, columnspan=2)
+        save_button.clicked.connect(save_and_close)
+        dialog.show()
 
 if __name__ == "__main__":
-    app = Application()
-    app.mainloop()
+    app = QApplication(sys.argv)
+    window = Application()
+    window.show()
+    sys.exit(app.exec_())
