@@ -1,5 +1,11 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeView, QVBoxLayout, QToolBar, QWidget, QAction, QMessageBox, QMenuBar, QSplitter, QFrame, QInputDialog, QLineEdit, QComboBox, QPushButton, QSizePolicy, QLabel, QToolButton, QCheckBox
+import json
+import os
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QTreeView, QVBoxLayout, QToolBar, QWidget, QAction, QMessageBox,
+    QMenuBar, QSplitter, QFrame, QInputDialog, QLineEdit, QComboBox, QPushButton, QSizePolicy,
+    QLabel, QToolButton, QCheckBox
+)
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtCore import Qt
 from database import Database
@@ -8,13 +14,36 @@ from data_display import display_data
 class Application(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.config_file = 'config.json'
         self.setWindowTitle("Personal Finance Manager")
         self.resize(800, 600)
         self.database = Database("finance.db")
-        self.dark_mode_enabled = False  # Track the dark mode state
+
+        self.color_mode = self.load_color_mode()
+
+        # Track the dark mode state
+        self.dark_mode_enabled = False
+        if self.color_mode == 'dark':
+            self.dark_mode_enabled = True
+
+        self.apply_color_mode(self.color_mode)
         self.create_menu()
-        self.create_toolbar()
         self.create_widgets()
+
+    def save_color_mode(self, mode):
+        # Write color mode to configuration file
+        with open(self.config_file, 'w') as config_f:
+            json.dump({'color_mode': mode}, config_f)
+
+    def load_color_mode(self):
+        # Read color mode from configuration file
+        try:
+            with open(self.config_file, 'r') as config_f:
+                config = json.load(config_f)
+                return config['color_mode']
+        except FileNotFoundError:
+            # Default to dark mode if file doesn't exist
+            return 'dark'
 
     def create_menu(self):
         menu_bar = self.menuBar()
@@ -34,35 +63,50 @@ class Application(QMainWindow):
         help_menu = menu_bar.addMenu("Help")
         help_menu.addAction("About", self.show_about)
 
-    def create_toolbar(self):
+    def create_widgets(self):
+        splitter = QSplitter(Qt.Horizontal)
+        self.left_section = QWidget()
+
+        self.left_layout = QVBoxLayout(self.left_section)
+        self.left_layout.setContentsMargins(10, 10, 0, 10)
+        splitter.addWidget(self.left_section)
+
+        self.tree = QTreeView()
+        self.tree.setHeaderHidden(True)
+        self.left_layout.addWidget(self.tree)
+
+        self.right_section = QWidget()
+        self.right_layout = QVBoxLayout(self.right_section)
+        self.right_layout.setContentsMargins(0, 10, 0, 0)
+        self.right_layout.setSpacing(0)
+
+        # Add a toolbar to the right section
         self.toolbar = QToolBar()
-        self.addToolBar(Qt.TopToolBarArea, self.toolbar)
+        self.toolbar.setMovable(False)  # Make the toolbar non-movable
+        self.right_layout.addWidget(self.toolbar)
 
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.toolbar.addWidget(spacer)
 
-        self.dark_mode_switch = QCheckBox()
-        self.dark_mode_switch.setText("")
-        #self.dark_mode_switch.setStyleSheet("")  # Ensure no conflicting styles
-        self.dark_mode_switch.setChecked(False)  # Initial state
+        # Add a checkbox to the toolbar and align it to the right
+        self.dark_mode_switch = QCheckBox("")
+        self.dark_mode_switch.setChecked(self.dark_mode_enabled)
         self.dark_mode_switch.stateChanged.connect(self.toggle_dark_mode)
         self.toolbar.addWidget(self.dark_mode_switch)
 
         # Apply the stylesheet to ensure the switch is styled correctly
         self.dark_mode_switch.setStyleSheet(open("dark_mode.qss").read())
 
-    def create_widgets(self):
-        splitter = QSplitter(Qt.Horizontal)
-
-        self.tree = QTreeView()
-        self.tree.setHeaderHidden(True)
-        splitter.addWidget(self.tree)
-
+        # Add a layout for the content frame
         self.content_frame = QFrame()
-        splitter.addWidget(self.content_frame)
-        splitter.setStretchFactor(1, 3)
+        #self.content_frame.setFrameShape(QFrame.Shape.NoFrame)
 
+        #content_layout = QVBoxLayout(self.content_frame)
+        self.right_layout.addWidget(self.content_frame)
+
+        splitter.addWidget(self.right_section)
+        splitter.setStretchFactor(1, 3)
         self.setCentralWidget(splitter)
         self.setup_treeview()
         self.tree.selectionModel().selectionChanged.connect(self.tree_selection_event)
@@ -71,12 +115,14 @@ class Application(QMainWindow):
         try:
             print("Toggling Dark Mode...")  # Debug statement
             if state == Qt.Checked:
-                self.apply_dark_mode()
+                self.apply_color_mode('dark')
                 self.dark_mode_switch.setText("")
+                self.save_color_mode('dark')
             else:
                 self.remove_dark_mode()
                 self.dark_mode_switch.setText("")
-            print("Dark Mode Toggled Successfully.")  # Debug statement
+                self.save_color_mode('light')
+            #print("Dark Mode Toggled Successfully.")  # Debug statement
         except Exception as e:
             print(f"Error in toggle_dark_mode: {e}")  # Debug statement
 
@@ -93,23 +139,34 @@ class Application(QMainWindow):
     def remove_dark_mode(self):
         try:
             print("Removing Dark Mode...")  # Debug statement
-            self.setStyleSheet("")  # Remove the stylesheet to switch to light mode
+            with open("light_mode.qss", "r") as f:
+                self.setStyleSheet(f.read())
             self.dark_mode_enabled = False
             print("Dark Mode Removed.")  # Debug statement
         except Exception as e:
             print(f"Error in remove_dark_mode: {e}")  # Debug statement
 
+    def apply_color_mode(self, mode):
+        print(f'Applying {1} mode', mode)  # Debug statement
+        stylesheet = mode + "_mode.qss"
+        try:
+            with open(stylesheet, "r") as f:
+                self.setStyleSheet(f.read())
+            self.dark_mode_enabled = mode == 'dark'
+            print(f'{mode} Mode Applied.')  # Debug statement
+        except Exception as e:
+            print(f"Error in apply_dark_mode: {e}")  # Debug statement
+
     def setup_treeview(self):
         model = QStandardItemModel()
         root_node = model.invisibleRootItem()
-
+        dashbaord_item = QStandardItem("Dashboard")
         transactions_item = QStandardItem("Transactions")
         settings_item = QStandardItem("Settings")
-
+        root_node.appendRow(dashbaord_item)
         root_node.appendRow(transactions_item)
         root_node.appendRow(settings_item)
 
-        transactions_item.appendRow(QStandardItem("Transaction List"))
         settings_item.appendRow(QStandardItem("Categories"))
         settings_item.appendRow(QStandardItem("Accounts"))
         settings_item.appendRow(QStandardItem("Credit Cards"))
@@ -140,8 +197,8 @@ class Application(QMainWindow):
                 self.display_accounts(self.content_frame)
             elif selected_item == "Credit Cards":
                 self.display_credit_cards(self.content_frame)
-            elif selected_item == "Transaction List":
-                self.display_transaction_list(self.content_frame)
+            elif selected_item == "Transactions":
+                self.display_transactions(self.content_frame)
             elif selected_item == "Currencies":
                 self.display_currencies(self.content_frame)
         except Exception as e:
@@ -149,19 +206,19 @@ class Application(QMainWindow):
             QMessageBox.critical(self, "Error", f"An error occurred: {e}")
 
     def display_categories(self, content_frame):
-        display_data("cat", content_frame)
+        display_data("cat", content_frame, self.toolbar)
 
     def display_accounts(self, content_frame):
-        display_data("accounts", content_frame)
+        display_data("accounts", content_frame, self.toolbar)
 
     def display_credit_cards(self, content_frame):
-        display_data("ccards", content_frame)
+        display_data("ccards", content_frame, self.toolbar)
 
-    def display_transaction_list(self, content_frame):
-        display_data("transactions", content_frame)
+    def display_transactions(self, content_frame):
+        display_data("transactions", content_frame, self.toolbar)
 
     def display_currencies(self, content_frame):
-        display_data("currency", content_frame)
+        display_data("currency", content_frame, self.toolbar)
 
     def add_category(self):
         self.open_input_dialog("Add Category", [("Category Name", "name")], self.database.insert_category)

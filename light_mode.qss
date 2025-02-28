@@ -1,77 +1,79 @@
 /* Global Colors */
 * {
-  background-color: #2e2e2e;
-  color: #ffffff;
+  background-color: #e0e0e0;
+  color: #333333;
 }
 
-#text-color { color: #ffffff; }
-#selection-color { background-color: #575757; color: #ffffff; }
-#gridline-color { color: #444444; }
-#button-color { background-color: #484848; color: #ffffff; }
-#button-hover-color { background-color: #575757; }
-#button-pressed-color { background-color: #444444; }
+#text-color { color: #333333; }
+#selection-color { background-color: #cce5ff; color: #333333; }
+#gridline-color { color: #cccccc; }
+#button-color { background-color: #e0e0e0; color: #333333; }
+#button-hover-color { background-color: #cce5ff; }
+#button-pressed-color { background-color: #cccccc; }
 
 /* Menu Bar */
 QMenuBar {
-  background-color: #3c3c3c;
+  background-color: #e5e5e5;
 }
 QMenuBar::item {
-  background-color: #3c3c3c;
+  background-color: #e5e5e5;
 }
 QMenuBar::item:selected {
-  background-color: #575757;
+  background-color: #cce5ff;
 }
 
 /* Menu */
-
+QMenu {
+  background-color: #f0f0f0;
+}
 QMenu::item:selected {
-  background-color: #575757;
+  background-color: #cce5ff;
 }
 
 /* Tool Bar */
 QToolBar {
-  border: none;
+  background-color: #e0e0e0; border: none;
 }
 
 /* Tree View */
 QTreeView {
-  background-color: #3c3c3c;
+  background-color: #e5e5e5;
   selection-background-color: #selection-color;
   selection-color: #text-color;
   gridline-color: #gridline-color;
-  border: 1px solid #2e2e2e;
+  border: 1px solid #cccccc;
 }
 QHeaderView::section {
-  background-color: #313131;
+  background-color: #e0e0e0;
   border: none;
 }
 QHeaderView::vertical {
-  background-color: #313131;
+  background-color: #e0e0e0;
 }
 QTableCornerButton::section {
-  background-color: #313131;
+  background-color: #e0e0e0;
 }
 
 /* Table View */
 QTableView {
-  background-color: #3c3c3c;
+  background-color: #e5e5e5;
   gridline-color: #gridline-color;
   selection-background-color: #selection-color;
   selection-color: #text-color;
   padding: 0;
-  border: 1px solid #2e2e2e;
+  border: 1px solid #cccccc;
 }
 
 /* Input Fields */
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
-  background-color: #3c3c3c;
-  border: 1px solid #444444;
+  background-color: #e5e5e5;
+  border: 1px solid #cccccc;
 }
 
 /* Buttons */
 QPushButton {
   background-color: #button-color;
-  border: 1px solid #444444;
+  border: 1px solid #cccccc;
 }
 QPushButton:hover {
   background-color: #button-hover-color;
@@ -95,4 +97,9 @@ QCheckBox::indicator:checked {
 }
 QCheckBox::indicator:unchecked {
   image: url(unchecked.png);
+}
+
+/* Splitter */
+QSplitter::handle {
+  background-color: #e0e0e0;
 }
