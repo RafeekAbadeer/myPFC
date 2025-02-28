@@ -158,14 +158,14 @@ class Application(QMainWindow):
                 "Transactions": self.display_transactions,
                 "Currencies": self.display_currencies
             }
-
+            #remove all the items on the toolbar except the mode toggle
+            actions_to_remove = self.toolbar.actions()[:-2]
+            for action in actions_to_remove:
+                self.toolbar.removeAction(action)
             display_func = display_functions.get(selected_item)
             if display_func:
                 display_func(self.content_frame)
-            else:
-                actions_to_remove = self.toolbar.actions()[:-2]
-                for action in actions_to_remove:
-                    self.toolbar.removeAction(action)
+
         except Exception as e:
             print(f"Error in tree_selection_event: {e}")
             QMessageBox.critical(self, "Error", f"An error occurred: {e}")

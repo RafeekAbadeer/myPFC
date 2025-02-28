@@ -1,13 +1,11 @@
 import sqlite3
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeView, QVBoxLayout, QWidget, QMessageBox, QToolBar, QAction, QTableView, QHeaderView, QCheckBox, QSizePolicy
-from PyQt5.QtGui import QStandardItemModel, QStandardItem
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon
 from PyQt5.QtCore import Qt
 from column_headers import column_headers
 from custom_queries import custom_queries
 
 def display_data(table_name, content_frame, toolbar):
-    # Get the main window and its toolbar
-    #main_window = content_frame.parent().parent()
 
     # Clear the content frame
     layout = content_frame.layout()
@@ -22,28 +20,26 @@ def display_data(table_name, content_frame, toolbar):
 
     #toolbar.clear()  # Remove any existing actions
 
-    for action in toolbar.actions():
-        widget = toolbar.widgetForAction(action)
-        if isinstance(widget, QCheckBox) or (isinstance(widget, QWidget) and widget.sizePolicy().horizontalPolicy() == QSizePolicy.Expanding):
-            continue
-        toolbar.removeAction(action)
+    # for action in toolbar.actions():
+    #     widget = toolbar.widgetForAction(action)
+    #     if isinstance(widget, QCheckBox) or (isinstance(widget, QWidget) and widget.sizePolicy().horizontalPolicy() == QSizePolicy.Expanding):
+    #         continue
+    #     toolbar.removeAction(action)
 
 
     # Add buttons to the toolbar
-
-    delete_action = QAction("Delete", toolbar)
+    filter_action = QAction(QIcon('icons/filter.png'), 'Filter', toolbar)
+    toolbar.insertAction(toolbar.actions()[0],filter_action)
+    delete_action = QAction(QIcon('icons/delete.png'), "Delete", toolbar)
     toolbar.insertAction(toolbar.actions()[0],delete_action)
-    edit_action = QAction("Edit", toolbar)
+    edit_action = QAction(QIcon('icons/edit.png'), "Edit", toolbar)
     toolbar.insertAction(toolbar.actions()[0],edit_action)
-    add_action = QAction("Add", toolbar)
+    add_action = QAction(QIcon('icons/add.png'), "Add", toolbar)
     toolbar.insertAction(toolbar.actions()[0],add_action)
-
-
 
     # Create a table to display the data
     data_table = QTableView()
     layout.addWidget(data_table)
-
 
     try:
         conn = sqlite3.connect("finance.db")
