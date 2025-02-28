@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="finance.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="0"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="100"/><column_width id="3" width="2651"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><table title="accounts" custom_title="0" dock_id="4" table="4,8:mainaccounts"/><dock_state state="000000ff00000000fd00000001000000020000043c000002b6fc0100000002fc000000000000043c0000000000fffffffaffffffff0100000002fb000000160064006f0063006b00420072006f00770073006500310100000000ffffffff0000000000000000fb000000160064006f0063006b00420072006f00770073006500320000000000ffffffff0000000000000000fb000000160064006f0063006b00420072006f00770073006500340100000000ffffffff0000011800ffffff0000043c0000000000000004000000040000000800000008fc00000000"/><default_encoding codec=""/><browse_table_settings/></tab_browse><tab_sql><sql name="SQL 1">-- Create a trigger to ensure debit + credit &gt; 0
+CREATE TRIGGER ensure_debit_credit_positive
+BEFORE INSERT ON transaction_lines
+FOR EACH ROW
+BEGIN
+    -- Check if the condition is met
+    SELECT CASE
+        WHEN (NEW.debit + NEW.credit) &lt;= 0 THEN
+            RAISE(ABORT, 'Debit + Credit must be greater than 0')
+    END;
+END;
+
+-- Create another trigger to ensure debit + credit &gt; 0 on update
+CREATE TRIGGER ensure_debit_credit_positive_update
+BEFORE UPDATE ON transaction_lines
+FOR EACH ROW
+BEGIN
+    -- Check if the condition is met
+    SELECT CASE
+        WHEN (NEW.debit + NEW.credit) &lt;= 0 THEN
+            RAISE(ABORT, 'Debit + Credit must be greater than 0')
+    END;
+END;</sql><sql name="Edit Trigger ensure_debit_credit_positive">DROP TRIGGER &quot;main&quot;.&quot;ensure_debit_credit_positive&quot;;
+CREATE TRIGGER ensure_debit_credit_positive
+BEFORE INSERT ON transaction_lines
+FOR EACH ROW
+BEGIN
+    -- Check if the condition is met
+    SELECT CASE
+        WHEN (NEW.debit + NEW.credit) &lt;= 0 THEN
+            RAISE(ABORT, 'Debit + Credit must be greater than 0')
+    END;
+END</sql><sql name="&amp;Integrity Check">PRAGMA integrity_check;</sql><sql name="Edit Trigger ensure_debit_credit_positive_update">DROP TRIGGER &quot;main&quot;.&quot;ensure_debit_credit_positive_update&quot;;
+CREATE TRIGGER ensure_debit_credit_positive_update
+BEFORE UPDATE ON transaction_lines
+FOR EACH ROW
+BEGIN
+    -- Check if the condition is met
+    SELECT CASE
+        WHEN (NEW.debit + NEW.credit) &lt;= 0 THEN
+            RAISE(ABORT, 'Debit + Credit must be greater than 0')
+    END;
+END</sql><current_tab id="3"/></tab_sql></sqlb_project>

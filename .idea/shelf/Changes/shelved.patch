@@ -1,0 +1,85 @@
+Index: dark_mode.qss
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>QMainWindow {\r\n    background-color: #2e2e2e;\r\n    color: #ffffff;\r\n}\r\n\r\nQMenuBar {\r\n    background-color: #2e2e2e;\r\n    color: #ffffff;\r\n}\r\n\r\nQMenuBar::item {\r\n    background-color: #2e2e2e;\r\n    color: #ffffff;\r\n}\r\n\r\nQMenuBar::item:selected {\r\n    background-color: #575757;\r\n}\r\n\r\nQMenu {\r\n    background-color: #2e2e2e;\r\n    color: #ffffff;\r\n}\r\n\r\nQMenu::item:selected {\r\n    background-color: #575757;\r\n}\r\n\r\nQToolBar {\r\n    background-color: #2e2e2e;\r\n    color: #ffffff;\r\n}\r\n\r\nQTreeView {\r\n    background-color: #3c3c3c;\r\n    color: #ffffff;\r\n    selection-background-color: #575757;\r\n    selection-color: #ffffff;\r\n}\r\n\r\nQHeaderView::section {\r\n    background-color: #2e2e2e;\r\n    color: #ffffff;\r\n}\r\n\r\nQTableView {\r\n    background-color: #3c3c3c;\r\n    color: #ffffff;\r\n    gridline-color: #444444;\r\n    selection-background-color: #575757;\r\n    selection-color: #ffffff;\r\n}\r\n\r\nQLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {\r\n    background-color: #3c3c3c;\r\n    color: #ffffff;\r\n    border: 1px solid #444444;\r\n}\r\n\r\nQPushButton {\r\n    background-color: #2e2e2e;\r\n    color: #ffffff;\r\n    border: 1px solid #444444;\r\n}\r\n\r\nQPushButton:hover {\r\n    background-color: #575757;\r\n}\r\n\r\nQPushButton:pressed {\r\n    background-color: #444444;\r\n}\r\n\r\nQCheckBox {\r\n    spacing: 1px; /* Adjust spacing as needed */\r\n    padding-right: 1px; /* Ensure enough space for the indicator */\r\n}\r\n\r\nQCheckBox::indicator {\r\n    width: 100px;\r\n    height: 50px;\r\n}\r\n\r\nQCheckBox::indicator:checked {\r\n    image: url(checked.png); /* Ensure this path is correct */\r\n}\r\n\r\nQCheckBox::indicator:unchecked {\r\n    image: url(unchecked.png); /* Ensure this path is correct */\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/dark_mode.qss b/dark_mode.qss
+--- a/dark_mode.qss	(revision 78c9780109ef81b5f2a4023ac82c513f6e19a99d)
++++ b/dark_mode.qss	(date 1740259801276)
+@@ -29,6 +29,7 @@
+ QToolBar {
+     background-color: #2e2e2e;
+     color: #ffffff;
++    border: none;  /* Remove the white line above the toolbar */
+ }
+ 
+ QTreeView {
+@@ -36,11 +37,14 @@
+     color: #ffffff;
+     selection-background-color: #575757;
+     selection-color: #ffffff;
++    gridline-color: #444444;  /* Ensure grid lines match dark mode */
++    border: 1px solid #2e2e2e;  /* Add a border to ensure no white areas */
+ }
+ 
+ QHeaderView::section {
+     background-color: #2e2e2e;
+     color: #ffffff;
++    border: 1px solid #444444;
+ }
+ 
+ QTableView {
+@@ -58,8 +62,8 @@
+ }
+ 
+ QPushButton {
+-    background-color: #2e2e2e;
+-    color: #ffffff;
++    background-color: #484848;  /* Change button background color */
++    color: #ffffff;  /* Ensure button text is white */
+     border: 1px solid #444444;
+ }
+ 
+@@ -88,3 +92,7 @@
+ QCheckBox::indicator:unchecked {
+     image: url(unchecked.png); /* Ensure this path is correct */
+ }
++
++QSplitter::handle {
++    background-color: #484848;  /* Match the separator to dark mode */
++}
+Index: .idea/workspace.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"AutoImportSettings\">\r\n    <option name=\"autoReloadType\" value=\"SELECTIVE\" />\r\n  </component>\r\n  <component name=\"ChangeListManager\">\r\n    <list default=\"true\" id=\"7831101c-4c2f-415b-827d-fa9aa0b4a82e\" name=\"Changes\" comment=\"Changing the GUI library\">\r\n      <change afterPath=\"$PROJECT_DIR$/column_headers.py\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/custom_queries.py\" afterDir=\"false\" />\r\n      <change afterPath=\"$PROJECT_DIR$/dark_mode.qss\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/.idea/workspace.xml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/workspace.xml\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/Test.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/Test.py\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/data_display.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/data_display.py\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/main.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/main.py\" afterDir=\"false\" />\r\n    </list>\r\n    <option name=\"SHOW_DIALOG\" value=\"false\" />\r\n    <option name=\"HIGHLIGHT_CONFLICTS\" value=\"true\" />\r\n    <option name=\"HIGHLIGHT_NON_ACTIVE_CHANGELIST\" value=\"false\" />\r\n    <option name=\"LAST_RESOLUTION\" value=\"IGNORE\" />\r\n  </component>\r\n  <component name=\"FileTemplateManagerImpl\">\r\n    <option name=\"RECENT_TEMPLATES\">\r\n      <list>\r\n        <option value=\"Python Script\" />\r\n      </list>\r\n    </option>\r\n  </component>\r\n  <component name=\"Git.Settings\">\r\n    <option name=\"RECENT_GIT_ROOT_PATH\" value=\"$PROJECT_DIR$\" />\r\n  </component>\r\n  <component name=\"ProblemsViewState\">\r\n    <option name=\"selectedTabId\" value=\"CurrentFile\" />\r\n  </component>\r\n  <component name=\"ProjectColorInfo\">{\r\n  &quot;associatedIndex&quot;: 3\r\n}</component>\r\n  <component name=\"ProjectId\" id=\"2rovIuZU0I2qpouI4HjLZP33LfB\" />\r\n  <component name=\"ProjectLevelVcsManager\" settingsEditedManually=\"true\" />\r\n  <component name=\"ProjectViewState\">\r\n    <option name=\"hideEmptyMiddlePackages\" value=\"true\" />\r\n    <option name=\"showLibraryContents\" value=\"true\" />\r\n  </component>\r\n  <component name=\"PropertiesComponent\">{\r\n  &quot;keyToString&quot;: {\r\n    &quot;Python.Test.executor&quot;: &quot;Run&quot;,\r\n    &quot;Python.column_headers.executor&quot;: &quot;Run&quot;,\r\n    &quot;Python.data_display.executor&quot;: &quot;Run&quot;,\r\n    &quot;Python.database.executor&quot;: &quot;Run&quot;,\r\n    &quot;Python.main.executor&quot;: &quot;Run&quot;,\r\n    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,\r\n    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,\r\n    &quot;git-widget-placeholder&quot;: &quot;master&quot;,\r\n    &quot;last_opened_file_path&quot;: &quot;C:/Users/user/PycharmProjects/myFCP&quot;,\r\n    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;\r\n  }\r\n}</component>\r\n  <component name=\"RecentsManager\">\r\n    <key name=\"CopyFile.RECENT_KEYS\">\r\n      <recent name=\"C:\\Users\\user\\PycharmProjects\\myFCP\" />\r\n    </key>\r\n  </component>\r\n  <component name=\"SharedIndexes\">\r\n    <attachedChunks>\r\n      <set>\r\n        <option value=\"bundled-python-sdk-495700d161d3-aa17d162503b-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-243.22562.220\" />\r\n      </set>\r\n    </attachedChunks>\r\n  </component>\r\n  <component name=\"SpellCheckerSettings\" RuntimeDictionaries=\"0\" Folders=\"0\" CustomDictionaries=\"0\" DefaultDictionary=\"application-level\" UseSingleDictionary=\"true\" transferred=\"true\" />\r\n  <component name=\"TaskManager\">\r\n    <task active=\"true\" id=\"Default\" summary=\"Default task\">\r\n      <changelist id=\"7831101c-4c2f-415b-827d-fa9aa0b4a82e\" name=\"Changes\" comment=\"\" />\r\n      <created>1737238166006</created>\r\n      <option name=\"number\" value=\"Default\" />\r\n      <option name=\"presentableId\" value=\"Default\" />\r\n      <updated>1737238166006</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00001\" summary=\"First trial\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1739857125481</created>\r\n      <option name=\"number\" value=\"00001\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00001\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1739857125481</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00002\" summary=\"Changing the GUI library\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1739959220214</created>\r\n      <option name=\"number\" value=\"00002\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00002\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1739959220214</updated>\r\n    </task>\r\n    <option name=\"localTasksCounter\" value=\"3\" />\r\n    <servers />\r\n  </component>\r\n  <component name=\"UnknownFeatures\">\r\n    <option featureType=\"com.intellij.fileTypeFactory\" implementationName=\"*.qss\" />\r\n  </component>\r\n  <component name=\"Vcs.Log.Tabs.Properties\">\r\n    <option name=\"TAB_STATES\">\r\n      <map>\r\n        <entry key=\"MAIN\">\r\n          <value>\r\n            <State />\r\n          </value>\r\n        </entry>\r\n      </map>\r\n    </option>\r\n  </component>\r\n  <component name=\"VcsManagerConfiguration\">\r\n    <MESSAGE value=\"First trial\" />\r\n    <MESSAGE value=\"Changing the GUI library\" />\r\n    <option name=\"LAST_COMMIT_MESSAGE\" value=\"Changing the GUI library\" />\r\n  </component>\r\n  <component name=\"XDebuggerManager\">\r\n    <breakpoint-manager>\r\n      <breakpoints>\r\n        <line-breakpoint enabled=\"true\" suspend=\"THREAD\" type=\"python-line\">\r\n          <url>file://$PROJECT_DIR$/data_display.py</url>\r\n          <option name=\"timeStamp\" value=\"1\" />\r\n        </line-breakpoint>\r\n      </breakpoints>\r\n    </breakpoint-manager>\r\n    <watches-manager>\r\n      <configuration name=\"PythonConfigurationType\">\r\n        <watch expression=\"column_names\" language=\"Python\" />\r\n      </configuration>\r\n    </watches-manager>\r\n  </component>\r\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/workspace.xml b/.idea/workspace.xml
+--- a/.idea/workspace.xml	(revision 78c9780109ef81b5f2a4023ac82c513f6e19a99d)
++++ b/.idea/workspace.xml	(date 1740259586083)
+@@ -5,13 +5,8 @@
+   </component>
+   <component name="ChangeListManager">
+     <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="Changing the GUI library">
+-      <change afterPath="$PROJECT_DIR$/column_headers.py" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/custom_queries.py" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/dark_mode.qss" afterDir="false" />
+       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/Test.py" beforeDir="false" afterPath="$PROJECT_DIR$/Test.py" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/data_display.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_display.py" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/dark_mode.qss" beforeDir="false" afterPath="$PROJECT_DIR$/dark_mode.qss" afterDir="false" />
+     </list>
+     <option name="SHOW_DIALOG" value="false" />
+     <option name="HIGHLIGHT_CONFLICTS" value="true" />
+@@ -27,6 +22,7 @@
+   </component>
+   <component name="Git.Settings">
+     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
++    <option name="RESET_MODE" value="HARD" />
+   </component>
+   <component name="ProblemsViewState">
+     <option name="selectedTabId" value="CurrentFile" />
