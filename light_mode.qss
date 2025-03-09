@@ -74,6 +74,8 @@ QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
 QPushButton {
   background-color: #button-color;
   border: 1px solid #cccccc;
+  min-width: 100px;
+  padding: 6px 12px;
 }
 QPushButton:hover {
   background-color: #button-hover-color;

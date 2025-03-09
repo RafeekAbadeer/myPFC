@@ -37,6 +37,35 @@ def display_data(table_name, content_frame, toolbar):
     add_action = QAction(QIcon('icons/add.png'), "Add", toolbar)
     toolbar.insertAction(toolbar.actions()[0],add_action)
 
+    # Connect actions to functions
+    action_handlers = {
+        "cat": {
+            "add": lambda: add_category_dialog(database, data_table, content_frame),
+            "edit": lambda: edit_category_dialog(database, data_table, content_frame),
+            "delete": lambda: delete_category_dialog(database, data_table, content_frame)
+        },
+        "accounts": {
+            "add": lambda: add_account_dialog(database, data_table, content_frame),
+            "edit": lambda: edit_account_dialog(database, data_table, content_frame),
+            "delete": lambda: delete_account_dialog(database, data_table, content_frame)
+        },
+        "currency": {
+            "add": lambda: add_currency_dialog(database, data_table, content_frame),
+            "edit": lambda: edit_currency_dialog(database, data_table, content_frame),
+            "delete": lambda: delete_currency_dialog(database, data_table, content_frame)
+        },
+        "ccards": {
+            "add": lambda: add_credit_card_dialog(database, data_table, content_frame),
+            "edit": lambda: edit_credit_card_dialog(database, data_table, content_frame),
+            "delete": lambda: delete_credit_card_dialog(database, data_table, content_frame)
+        }
+    }
+
+    if table_name in action_handlers:
+        add_action.triggered.connect(action_handlers[table_name]["add"])
+        edit_action.triggered.connect(action_handlers[table_name]["edit"])
+        delete_action.triggered.connect(action_handlers[table_name]["delete"])
+
     # Create a table to display the data
     data_table = QTableView()
     layout.addWidget(data_table)
@@ -76,6 +105,76 @@ def display_data(table_name, content_frame, toolbar):
         conn.close()
     except sqlite3.Error as e:
         QMessageBox.critical(content_frame, "Error", f"An error occurred: {e}")
+
+
+def get_selected_row_data(table_view):
+    """Helper function to get data from selected row"""
+    if not table_view.selectionModel().hasSelection():
+        return None
+
+    model = table_view.model()
+    row = table_view.selectionModel().currentIndex().row()
+    columns = model.columnCount()
+    row_data = []
+
+    for col in range(columns):
+        row_data.append(model.item(row, col).text())
+
+    return row_data
+
+
+def add_category_dialog(database, table_view, parent):
+    name, ok = QInputDialog.getText(parent, "Add Category", "Category Name:")
+    if ok and name:
+        try:
+            database.insert_category(name)
+            # Refresh the table
+            display_data("cat", parent, parent.findChild(QToolBar), database)
+        except Exception as e:
+            QMessageBox.critical(parent, "Error", f"Failed to add category: {e}")
+
+
+def edit_category_dialog(database, table_view, parent):
+    row_data = get_selected_row_data(table_view)
+    if not row_data:
+        QMessageBox.warning(parent, "Warning", "Please select a category to edit.")
+        return
+
+    category_id = int(row_data[0])
+    current_name = row_data[1]
+
+    new_name, ok = QInputDialog.getText(parent, "Edit Category",
+                                        "Category Name:", QLineEdit.Normal,
+                                        current_name)
+    if ok and new_name:
+        try:
+            database.update_category(category_id, new_name)
+            # Refresh the table
+            display_data("cat", parent, parent.findChild(QToolBar), database)
+        except Exception as e:
+            QMessageBox.critical(parent, "Error", f"Failed to update category: {e}")
+
+
+def delete_category_dialog(database, table_view, parent):
+    row_data = get_selected_row_data(table_view)
+    if not row_data:
+        QMessageBox.warning(parent, "Warning", "Please select a category to delete.")
+        return
+
+    category_id = int(row_data[0])
+    category_name = row_data[1]
+
+    reply = QMessageBox.question(parent, "Confirm Deletion",
+                                 f"Are you sure you want to delete the category '{category_name}'?",
+                                 QMessageBox.Yes | QMessageBox.No)
+
+    if reply == QMessageBox.Yes:
+        try:
+            database.delete_category(category_id)
+            # Refresh the table
+            display_data("cat", parent, parent.findChild(QToolBar), database)
+        except Exception as e:
+            QMessageBox.critical(parent, "Error", f"Failed to delete category: {e}")
 
 if __name__ == "__main__":
     app = QApplication([])

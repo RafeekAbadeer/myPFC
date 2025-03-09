@@ -26,6 +26,7 @@ QMenuBar::item:selected {
 
 QMenu::item:selected {
   background-color: #575757;
+  color: #ffffff;
 }
 
 /* Tool Bar */
@@ -33,12 +34,43 @@ QToolBar {
   border: none;
 }
 
+QToolBar QToolButton {
+  background-color: transparent;
+  color: #ffffff;
+  border: 1px solid transparent;
+  padding: 3px;
+}
+
+QToolBar QToolButton:hover {
+  background-color: #575757;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  border-left-color: #666666; /* Lighter left border */
+  border-top-color: #666666;  /* Lighter top border */
+  border-right-color: #444444; /* Darker right border */
+  border-bottom-color: #444444; /* Darker bottom border */
+  border-radius: 3px;
+  padding: 2px;
+}
+
+QToolBar QToolButton:pressed {
+  background-color: #444444;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  border-left-color: #333333; /* Darker left border */
+  border-top-color: #333333;  /* Darker top border */
+  border-right-color: #666666; /* Lighter right border */
+  border-bottom-color: #666666; /* Lighter bottom border */
+  border-radius: 3px;
+  padding: 2px;
+}
+
 /* Tree View */
 QTreeView {
   background-color: #3c3c3c;
-  selection-background-color: #selection-color;
-  selection-color: #text-color;
-  gridline-color: #gridline-color;
+  selection-background-color: #575757;
+  selection-color: #ffffff;
+  gridline-color: #444444;
   border: 1px solid #2e2e2e;
 }
 QHeaderView::section {
@@ -52,14 +84,24 @@ QTableCornerButton::section {
   background-color: #313131;
 }
 
+
+
 /* Table View */
 QTableView {
   background-color: #3c3c3c;
-  gridline-color: #gridline-color;
-  selection-background-color: #selection-color;
-  selection-color: #text-color;
+  gridline-color: #444444;
+  selection-background-color: #575757;
+  selection-color: #ffffff;
   padding: 0;
   border: 1px solid #2e2e2e;
+}
+
+QHeaderView::up-arrow {
+    image: url('icons/headerUp.png');
+}
+
+QHeaderView::down-arrow {
+    image: url('icons/headerDown.png');
 }
 
 /* Input Fields */
@@ -70,14 +112,30 @@ QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
 
 /* Buttons */
 QPushButton {
-  background-color: #button-color;
+  background-color: #484848;
   border: 1px solid #444444;
+  min-width: 100px;
+  padding: 6px 12px;
 }
 QPushButton:hover {
-  background-color: #button-hover-color;
+  background-color: #474747;
+  border: 1px solid #ffffff;
+  border-left-color: #666666; /* Lighter left border */
+  border-top-color: #666666;  /* Lighter top border */
+  border-right-color: #444444; /* Darker right border */
+  border-bottom-color: #444444; /* Darker bottom border */
+  border-radius: 4px;
+  padding: 4px;
 }
 QPushButton:pressed {
-  background-color: #button-pressed-color;
+  background-color: #444444;
+  border: 1px solid #ffffff;
+  border-left-color: #333333; /* Darker left border */
+  border-top-color: #333333;  /* Darker top border */
+  border-right-color: #666666; /* Lighter right border */
+  border-bottom-color: #666666; /* Lighter bottom border */
+  border-radius: 4px;
+  padding: 4px;
 }
 
 /* Checkboxes */
@@ -95,4 +153,11 @@ QCheckBox::indicator:checked {
 }
 QCheckBox::indicator:unchecked {
   image: url(unchecked.png);
+}
+
+/* Tooltip */
+QToolTip {
+  background-color: #575757;
+  color: #ffffff;
+  border: 1px solid #444444;
 }

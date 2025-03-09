@@ -41,7 +41,6 @@ class Database:
                 credit_limit REAL NOT NULL,
                 close_day INTEGER NOT NULL,
                 due_day INTEGER NOT NULL,
-                balance REAL NOT NULL,
                 FOREIGN KEY (account_id) REFERENCES accounts (id)
             )
         ''')
@@ -116,11 +115,10 @@ class Database:
         self.conn.commit()
         return self.cursor.lastrowid
 
-    def insert_credit_card(self, account_id, credit_limit, close_day, due_day, balance=0):
-        self.cursor.execute("INSERT INTO ccards (account_id, credit_limit, close_day, due_day, balance) VALUES (?, ?, ?, ?, ?)", (account_id, credit_limit, close_day, due_day, balance))
+    def insert_credit_card(self, account_id, credit_limit, close_day, due_day):
+        self.cursor.execute("INSERT INTO ccards (account_id, credit_limit, close_day, due_day) VALUES (?, ?, ?, ?)", (account_id, credit_limit, close_day, due_day))
         self.conn.commit()
         return self.cursor.lastrowid
-
 
     def insert_transaction(self, description, currency_id):
         self.cursor.execute("INSERT INTO transactions (description, currency_id) VALUES (?, ?)",
@@ -174,6 +172,178 @@ class Database:
     def get_account_id(self, name):
         self.cursor.execute("SELECT id FROM accounts WHERE name = ?", (name,))
         return self.cursor.fetchone()[0]
+
+    # Add these methods to the Database class
+
+    def update_category(self, id, name):
+        self.cursor.execute("UPDATE cat SET name = ? WHERE id = ?", (name, id))
+        self.conn.commit()
+
+    def delete_category(self, id):
+        self.cursor.execute("DELETE FROM cat WHERE id = ?", (id,))
+        self.conn.commit()
+
+    def update_currency(self, id, name, exchange_rate):
+        self.cursor.execute("UPDATE currency SET name = ?, exchange_rate = ? WHERE id = ?",
+                            (name, exchange_rate, id))
+        self.conn.commit()
+
+    def delete_currency(self, id):
+        self.cursor.execute("DELETE FROM currency WHERE id = ?", (id,))
+        self.conn.commit()
+
+    def update_account(self, id, name, cat_id, default_currency_id=None):
+        self.cursor.execute("UPDATE accounts SET name = ?, cat_id = ?, default_currency_id = ? WHERE id = ?",
+                            (name, cat_id, default_currency_id, id))
+        self.conn.commit()
+
+    def delete_account(self, id):
+        self.cursor.execute("DELETE FROM accounts WHERE id = ?", (id,))
+        self.conn.commit()
+
+    def update_credit_card(self, account_id, credit_limit, close_day, due_day):
+        self.cursor.execute("UPDATE ccards SET credit_limit = ?, close_day = ?, due_day = ? WHERE account_id = ?",
+                            (credit_limit, close_day, due_day, account_id))
+        self.conn.commit()
+
+    def delete_credit_card(self, account_id):
+        self.cursor.execute("DELETE FROM ccards WHERE account_id = ?", (account_id,))
+        self.conn.commit()
+
+    def get_credit_card_by_account_id(self, account_id):
+        self.cursor.execute("SELECT * FROM ccards WHERE account_id = ?", (account_id,))
+        return self.cursor.fetchone()
+
+    # Add to database.py
+    def get_credit_card_details(self, account_id):
+        self.cursor.execute("""
+            SELECT id, credit_limit, close_day, due_day
+            FROM ccards
+            WHERE account_id = ?
+        """, (account_id,))
+        result = self.cursor.fetchone()
+        if result:
+            return {
+                'id': result[0],
+                'credit_limit': result[1],
+                'close_day': result[2],
+                'due_day': result[3]
+            }
+        return None
+
+    # Add to database.py
+    def is_credit_card(self, account_id):
+        self.cursor.execute("SELECT COUNT(*) FROM ccards WHERE account_id = ?", (account_id,))
+        return self.cursor.fetchone()[0] > 0
+
+    def get_account_by_id(self, id):
+        self.cursor.execute("SELECT * FROM accounts WHERE id = ?", (id,))
+        return self.cursor.fetchone()
+
+    def get_category_by_id(self, id):
+        self.cursor.execute("SELECT * FROM cat WHERE id = ?", (id,))
+        return self.cursor.fetchone()
+
+    def get_currency_by_id(self, id):
+        self.cursor.execute("SELECT * FROM currency WHERE id = ?", (id,))
+        return self.cursor.fetchone()
+
+    def get_category_by_name(self, name):
+        self.cursor.execute("SELECT * FROM cat WHERE name = ?", (name,))
+        return self.cursor.fetchone()
+
+    def get_all_categories(self):
+        self.cursor.execute("SELECT id, name FROM cat")
+        return self.cursor.fetchall()
+
+    def get_all_currencies(self):
+        self.cursor.execute("SELECT id, name, exchange_rate FROM currency")
+        return self.cursor.fetchall()
+
+    def get_all_accounts(self):
+        self.cursor.execute("""
+            SELECT a.id, a.name, c.name as category, cu.name as currency
+            FROM accounts a
+            JOIN cat c ON a.cat_id = c.id
+            LEFT JOIN currency cu ON a.default_currency_id = cu.id
+        """)
+        return self.cursor.fetchall()
+
+    def get_all_credit_cards(self):
+        self.cursor.execute("""
+            SELECT cc.id, a.name, cc.credit_limit, cc.close_day, cc.due_day, cu.name as currency
+            FROM ccards cc
+            JOIN accounts a ON cc.account_id = a.id
+            LEFT JOIN currency cu ON a.default_currency_id = cu.id
+        """)
+        return self.cursor.fetchall()
+
+    def get_credit_card_by_id(self, id):
+        self.cursor.execute("""
+            SELECT cc.id, cc.account_id, cc.credit_limit, cc.close_day, cc.due_day
+            FROM ccards cc
+            WHERE cc.id = ?
+        """, (id,))
+        result = self.cursor.fetchone()
+        if result:
+            return {
+                'id': result[0],
+                'account_id': result[1],
+                'credit_limit': result[2],
+                'close_day': result[3],
+                'due_day': result[4]
+            }
+        return None
+
+    def get_account_details(self, account_id):
+        self.cursor.execute("""
+            SELECT a.id, a.name, a.cat_id, a.default_currency_id, c.name, cu.name
+            FROM accounts a
+            JOIN cat c ON a.cat_id = c.id
+            LEFT JOIN currency cu ON a.default_currency_id = cu.id
+            WHERE a.id = ?
+        """, (account_id,))
+        result = self.cursor.fetchone()
+        if result:
+            return {
+                'id': result[0],
+                'name': result[1],
+                'category_id': result[2],
+                'currency_id': result[3],
+                'category_name': result[4],
+                'currency_name': result[5]
+            }
+        return None
+
+    def account_has_transactions(self, account_id):
+        self.cursor.execute("""
+            SELECT COUNT(*) FROM transaction_lines
+            WHERE account_id = ?
+        """, (account_id,))
+        count = self.cursor.fetchone()[0]
+        return count > 0
+
+    def get_credit_card_statement(self, account_id, month, year):
+        # Format date ranges for the given month
+        start_date = f"{year}-{month:02d}-01"
+        end_date = f"{year}-{month:02d}-31" if month != 2 else f"{year}-{month:02d}-28"
+
+        self.cursor.execute("""
+            SELECT tl.date, t.description, tl.debit - tl.credit as amount
+            FROM transaction_lines tl
+            JOIN transactions t ON tl.transaction_id = t.id
+            WHERE tl.account_id = ? AND tl.date BETWEEN ? AND ?
+            ORDER BY tl.date
+        """, (account_id, start_date, end_date))
+
+        results = []
+        for row in self.cursor.fetchall():
+            results.append({
+                'date': row[0],
+                'description': row[1],
+                'amount': row[2]
+            })
+        return results
 
 # Initialize the database
 db = Database('finance.db')

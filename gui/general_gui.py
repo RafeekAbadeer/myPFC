@@ -4,8 +4,8 @@ from PyQt5.QtWidgets import (
     QMainWindow, QTreeView, QVBoxLayout, QToolBar, QWidget, QAction, QMessageBox,
     QSplitter, QFrame, QCheckBox, QSizePolicy, QLabel, QInputDialog, QLineEdit, QComboBox, QPushButton
 )
-from PyQt5.QtGui import QStandardItemModel, QStandardItem
-from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon
+from PyQt5.QtCore import Qt, QSize
 from database import Database
 from gui.display_categories import display_categories
 from gui.display_accounts import display_accounts
@@ -25,6 +25,21 @@ class Application(QMainWindow):
         self.apply_color_mode(self.color_mode)
         self.create_menu()
         self.create_widgets()
+
+        # # Define a button configuration
+        # self.button_config = {
+        #     "Categories": {
+        #         "Add": self.add_category,
+        #         "Edit": self.edit_category,
+        #         "Delete": self.delete_category,
+        #     },
+        #     "Accounts": {
+        #         "Add": self.add_account,
+        #         "Edit": self.edit_account,
+        #         "Delete": self.delete_account,
+        #     },
+        # # Add other treeview items as needed...
+        # }
 
     def save_color_mode(self, mode):
         with open(self.config_file, 'w') as config_f:
@@ -71,6 +86,8 @@ class Application(QMainWindow):
         self.right_layout.setSpacing(0)
 
         self.toolbar = QToolBar()
+        self.toolbar.setIconSize(QSize(20,20))
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         self.toolbar.setMovable(False)
         self.right_layout.addWidget(self.toolbar)
 
@@ -126,9 +143,17 @@ class Application(QMainWindow):
         root_node = model.invisibleRootItem()
         dashboard_item = QStandardItem("Dashboard")
         transactions_item = QStandardItem("Transactions")
+        statements_item = QStandardItem("Financial Statements")
+        statements_item.appendRow(QStandardItem("Journal"))
+        statements_item.appendRow(QStandardItem("Income Statement"))
+        statements_item.appendRow(QStandardItem("Balance Sheet"))
+        statements_item.appendRow(QStandardItem("Cash flow"))
+        reports_item = QStandardItem("Reports")
+        tools_item = QStandardItem("Tools")
         settings_item = QStandardItem("Settings")
         root_node.appendRow(dashboard_item)
         root_node.appendRow(transactions_item)
+        root_node.appendRows([statements_item, reports_item, tools_item])
         root_node.appendRow(settings_item)
         settings_item.appendRow(QStandardItem("Categories"))
         settings_item.appendRow(QStandardItem("Accounts"))
@@ -158,6 +183,7 @@ class Application(QMainWindow):
                 "Transactions": self.display_transactions,
                 "Currencies": self.display_currencies
             }
+
             #remove all the items on the toolbar except the mode toggle
             actions_to_remove = self.toolbar.actions()[:-2]
             for action in actions_to_remove:

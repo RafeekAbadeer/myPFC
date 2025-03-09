@@ -4,11 +4,27 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="Modularizign GUI">
+    <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="Icons added">
+      <change afterPath="$PROJECT_DIR$/gui/dialog_utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/1x/toggles.pptx" beforeDir="false" afterPath="$PROJECT_DIR$/1x/toggles.pptx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Test.py" beforeDir="false" afterPath="$PROJECT_DIR$/Test.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/checked.png" beforeDir="false" afterPath="$PROJECT_DIR$/checked.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dark_mode.qss" beforeDir="false" afterPath="$PROJECT_DIR$/dark_mode.qss" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data_display.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_display.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/database.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/finance.db" beforeDir="false" afterPath="$PROJECT_DIR$/finance.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/display_accounts.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_accounts.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/display_categories.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_categories.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/display_credit_cards.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_credit_cards.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/display_currencies.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_currencies.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/gui/general_gui.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/general_gui.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/icons/add.png" beforeDir="false" afterPath="$PROJECT_DIR$/icons/add.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/icons/delete.png" beforeDir="false" afterPath="$PROJECT_DIR$/icons/delete.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/icons/edit.png" beforeDir="false" afterPath="$PROJECT_DIR$/icons/edit.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/icons/filter.png" beforeDir="false" afterPath="$PROJECT_DIR$/icons/filter.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/light_mode.qss" beforeDir="false" afterPath="$PROJECT_DIR$/light_mode.qss" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unchecked.png" beforeDir="false" afterPath="$PROJECT_DIR$/unchecked.png" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -44,6 +60,9 @@
     "Python.column_headers.executor": "Run",
     "Python.data_display.executor": "Run",
     "Python.database.executor": "Run",
+    "Python.dialog_utils.executor": "Run",
+    "Python.display_accounts.executor": "Run",
+    "Python.display_currencies.executor": "Run",
     "Python.general_gui.executor": "Run",
     "Python.main.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -61,7 +80,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-495700d161d3-aa17d162503b-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-243.22562.220" />
+        <option value="bundled-python-sdk-14705d77f0bb-aa17d162503b-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-243.25659.43" />
       </set>
     </attachedChunks>
   </component>
@@ -106,7 +125,15 @@
       <option name="project" value="LOCAL" />
       <updated>1740775026776</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="Icons added">
+      <option name="closed" value="true" />
+      <created>1740780149021</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1740780149021</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="UnknownFeatures">
@@ -128,7 +155,8 @@
     <MESSAGE value="Changing the GUI library" />
     <MESSAGE value="color mode" />
     <MESSAGE value="Modularizign GUI" />
-    <option name="LAST_COMMIT_MESSAGE" value="Modularizign GUI" />
+    <MESSAGE value="Icons added" />
+    <option name="LAST_COMMIT_MESSAGE" value="Icons added" />
   </component>
   <component name="XDebuggerManager">
     <watches-manager>
