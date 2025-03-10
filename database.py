@@ -417,6 +417,13 @@ class Database:
         )
         self.conn.commit()
 
+    def unlink_account_classification(self, account_id, classification_id):
+        self.cursor.execute(
+            "DELETE FROM account_classifications WHERE account_id = ? AND classification_id = ?",
+            (account_id, classification_id)
+        )
+        self.conn.commit()
+
 # Initialize the database
 db = Database('finance.db')
 

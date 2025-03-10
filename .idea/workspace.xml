@@ -4,19 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="Icons added">
-      <change afterPath="$PROJECT_DIR$/gui/display_classifications.py" afterDir="false" />
+    <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="Classification GUI is added">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/FDB.db" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/checked.png" beforeDir="false" afterPath="$PROJECT_DIR$/icons/checked.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dark_mode.qss" beforeDir="false" afterPath="$PROJECT_DIR$/dark_mode.qss" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/database.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/database_1.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/financial_database.db" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/finance.db" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/general_gui.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/general_gui.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/light_mode.qss" beforeDir="false" afterPath="$PROJECT_DIR$/light_mode.qss" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/unchecked.png" beforeDir="false" afterPath="$PROJECT_DIR$/icons/unchecked.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/finance.db" beforeDir="false" afterPath="$PROJECT_DIR$/finance.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/display_accounts.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_accounts.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -34,6 +26,18 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="RESET_MODE" value="HARD" />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "RafeekAbadeer"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/RafeekAbadeer/myPFC.git",
+    "accountId": "d919674b-55aa-4eec-add4-f26fdf98e21b"
+  }
+}]]></component>
   <component name="ProblemsViewState">
     <option name="selectedTabId" value="CurrentFile" />
   </component>
@@ -128,7 +132,15 @@
       <option name="project" value="LOCAL" />
       <updated>1740780149021</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="Classification GUI is added">
+      <option name="closed" value="true" />
+      <created>1741594090232</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1741594090232</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="UnknownFeatures">
@@ -151,9 +163,19 @@
     <MESSAGE value="color mode" />
     <MESSAGE value="Modularizign GUI" />
     <MESSAGE value="Icons added" />
-    <option name="LAST_COMMIT_MESSAGE" value="Icons added" />
+    <MESSAGE value="Classification GUI is added" />
+    <option name="LAST_COMMIT_MESSAGE" value="Classification GUI is added" />
   </component>
   <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/database.py</url>
+          <line>390</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
     <watches-manager>
       <configuration name="PythonConfigurationType">
         <watch expression="column_names" language="Python" />
