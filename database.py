@@ -62,10 +62,31 @@ class Database:
                 debit REAL,
                 credit REAL,
                 date DATE NOT NULL,
+                classification_id INTEGER,
                 FOREIGN KEY (transaction_id) REFERENCES transactions (id),
-                FOREIGN KEY (account_id) REFERENCES accounts (id)
+                FOREIGN KEY (account_id) REFERENCES accounts (id),
+                FOREIGN KEY (classification_id) REFERENCES classifications (id)
             )
         ''')
+
+        self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS classifications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    UNIQUE(name)
+                )
+            ''')
+
+        self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS account_classifications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    account_id INTEGER NOT NULL,
+                    classification_id INTEGER NOT NULL,
+                    FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE,
+                    FOREIGN KEY (classification_id) REFERENCES classifications (id) ON DELETE CASCADE,
+                    UNIQUE(account_id, classification_id)
+                )
+            ''')
 
         # Create indexes
         self.cursor.execute('''CREATE INDEX IF NOT EXISTS idx_ccards_account_id ON ccards (account_id)''')
@@ -73,6 +94,8 @@ class Database:
             '''CREATE INDEX IF NOT EXISTS idx_transaction_lines_account_id ON transaction_lines (account_id)''')
         self.cursor.execute(
             '''CREATE INDEX IF NOT EXISTS idx_transaction_lines_transaction_id ON transaction_lines (transaction_id)''')
+        self.cursor.execute('''CREATE INDEX IF NOT EXISTS idx_transaction_lines_classification_id 
+                               ON transaction_lines (classification_id)''')
 
         # Create triggers
         self.cursor.execute('''CREATE TRIGGER IF NOT EXISTS ensure_debit_credit_positive
@@ -344,6 +367,36 @@ class Database:
                 'amount': row[2]
             })
         return results
+
+    def insert_classification(self, name):
+        self.cursor.execute("INSERT INTO classifications (name) VALUES (?)", (name,))
+        self.conn.commit()
+        return self.cursor.lastrowid
+
+    def link_account_classification(self, account_id, classification_id):
+        self.cursor.execute(
+            "INSERT INTO account_classifications (account_id, classification_id) VALUES (?, ?)",
+            (account_id, classification_id)
+        )
+        self.conn.commit()
+        return self.cursor.lastrowid
+
+    def get_classifications_for_account(self, account_id):
+        self.cursor.execute("""
+            SELECT c.id, c.name
+            FROM classifications c
+            JOIN account_classifications ac ON c.id = ac.classification_id
+            WHERE ac.account_id = ?
+            ORDER BY c.name
+        """, (account_id,))
+        return self.cursor.fetchall()
+
+    def update_transaction_line_classification(self, transaction_line_id, classification_id):
+        self.cursor.execute(
+            "UPDATE transaction_lines SET classification_id = ? WHERE id = ?",
+            (classification_id, transaction_line_id)
+        )
+        self.conn.commit()
 
 # Initialize the database
 db = Database('finance.db')

@@ -2,7 +2,7 @@ import json
 import os
 from PyQt5.QtWidgets import (
     QMainWindow, QTreeView, QVBoxLayout, QToolBar, QWidget, QAction, QMessageBox,
-    QSplitter, QFrame, QCheckBox, QSizePolicy, QLabel, QInputDialog, QLineEdit, QComboBox, QPushButton
+    QSplitter, QFrame, QCheckBox, QSizePolicy, QLabel, QAbstractItemView, QLineEdit, QComboBox, QPushButton
 )
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon
 from PyQt5.QtCore import Qt, QSize
@@ -25,21 +25,6 @@ class Application(QMainWindow):
         self.apply_color_mode(self.color_mode)
         self.create_menu()
         self.create_widgets()
-
-        # # Define a button configuration
-        # self.button_config = {
-        #     "Categories": {
-        #         "Add": self.add_category,
-        #         "Edit": self.edit_category,
-        #         "Delete": self.delete_category,
-        #     },
-        #     "Accounts": {
-        #         "Add": self.add_account,
-        #         "Edit": self.edit_account,
-        #         "Delete": self.delete_account,
-        #     },
-        # # Add other treeview items as needed...
-        # }
 
     def save_color_mode(self, mode):
         with open(self.config_file, 'w') as config_f:
@@ -79,6 +64,7 @@ class Application(QMainWindow):
 
         self.tree = QTreeView()
         self.tree.setHeaderHidden(True)
+        self.tree.setEditTriggers(QAbstractItemView.NoEditTriggers)  # Disable editing
         self.left_layout.addWidget(self.tree)
         self.right_section = QWidget()
         self.right_layout = QVBoxLayout(self.right_section)
