@@ -5,9 +5,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="Icons added">
+      <change afterPath="$PROJECT_DIR$/gui/display_classifications.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FDB.db" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/checked.png" beforeDir="false" afterPath="$PROJECT_DIR$/icons/checked.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dark_mode.qss" beforeDir="false" afterPath="$PROJECT_DIR$/dark_mode.qss" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/database.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/finance.db" beforeDir="false" afterPath="$PROJECT_DIR$/finance.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database_1.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/financial_database.db" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/finance.db" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/general_gui.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/general_gui.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/light_mode.qss" beforeDir="false" afterPath="$PROJECT_DIR$/light_mode.qss" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/unchecked.png" beforeDir="false" afterPath="$PROJECT_DIR$/icons/unchecked.png" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -58,6 +67,9 @@
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\user\PycharmProjects\myFCP" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\user\PycharmProjects\myFCP\icons" />
     </key>
   </component>
   <component name="SharedIndexes">

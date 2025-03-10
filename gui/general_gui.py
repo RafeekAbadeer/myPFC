@@ -12,6 +12,7 @@ from gui.display_accounts import display_accounts
 from gui.display_credit_cards import display_credit_cards
 from gui.display_transactions import display_transactions
 from gui.display_currencies import display_currencies
+from gui.display_classifications import display_classifications
 
 class Application(QMainWindow):
     def __init__(self):
@@ -51,6 +52,7 @@ class Application(QMainWindow):
         add_menu.addAction("Account", self.add_account)
         add_menu.addAction("Credit Card", self.add_credit_card)
         add_menu.addAction("Transaction", self.add_transaction)
+        add_menu.addAction("Classification", self.add_classification)
 
         help_menu = menu_bar.addMenu("Help")
         help_menu.addAction("About", self.show_about)
@@ -145,6 +147,7 @@ class Application(QMainWindow):
         settings_item.appendRow(QStandardItem("Accounts"))
         settings_item.appendRow(QStandardItem("Credit Cards"))
         settings_item.appendRow(QStandardItem("Currencies"))
+        settings_item.appendRow(QStandardItem("Classifications"))
         self.tree.setModel(model)
         self.tree.expandAll()
 
@@ -167,7 +170,8 @@ class Application(QMainWindow):
                 "Accounts": self.display_accounts,
                 "Credit Cards": self.display_credit_cards,
                 "Transactions": self.display_transactions,
-                "Currencies": self.display_currencies
+                "Currencies": self.display_currencies,
+                "Classifications": self.display_classifications
             }
 
             #remove all the items on the toolbar except the mode toggle
@@ -206,6 +210,9 @@ class Application(QMainWindow):
 
     def display_currencies(self, content_frame):
         display_currencies(content_frame, self.toolbar)
+
+    def display_classifications(self, content_frame):
+        display_classifications(content_frame, self.toolbar)
 
     def add_category(self):
         self.open_input_dialog("Add Category", [("Category Name", "name")], self.database.insert_category)
@@ -255,6 +262,10 @@ class Application(QMainWindow):
             ("Description", "description"),
             ("Currency", "currency", self.database.get_currencies)
         ], self.save_transaction)
+
+    def add_classification(self):
+        self.open_input_dialog("Add Classification", [("Classification Name", "name")],
+                               self.database.insert_classification)
 
 
     def save_transaction(self, data):

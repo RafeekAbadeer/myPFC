@@ -95,10 +95,10 @@ QCheckBox::indicator {
   height: 30px;
 }
 QCheckBox::indicator:checked {
-  image: url(checked.png);
+  image: url(icons/checked.png);
 }
 QCheckBox::indicator:unchecked {
-  image: url(unchecked.png);
+  image: url(icons/unchecked.png);
 }
 
 /* Splitter */

@@ -254,10 +254,29 @@ class Database:
             }
         return None
 
-    # Add to database.py
     def is_credit_card(self, account_id):
         self.cursor.execute("SELECT COUNT(*) FROM ccards WHERE account_id = ?", (account_id,))
         return self.cursor.fetchone()[0] > 0
+
+    def get_all_classifications(self):
+        self.cursor.execute("SELECT id, name FROM classifications")
+        return self.cursor.fetchall()
+
+    def get_classification_by_id(self, id):
+        self.cursor.execute("SELECT * FROM classifications WHERE id = ?", (id,))
+        return self.cursor.fetchone()
+
+    def get_classification_by_name(self, name):
+        self.cursor.execute("SELECT * FROM classifications WHERE name = ?", (name,))
+        return self.cursor.fetchone()
+
+    def update_classification(self, id, name):
+        self.cursor.execute("UPDATE classifications SET name = ? WHERE id = ?", (name, id))
+        self.conn.commit()
+
+    def delete_classification(self, id):
+        self.cursor.execute("DELETE FROM classifications WHERE id = ?", (id,))
+        self.conn.commit()
 
     def get_account_by_id(self, id):
         self.cursor.execute("SELECT * FROM accounts WHERE id = ?", (id,))
