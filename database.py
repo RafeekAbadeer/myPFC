@@ -2,7 +2,7 @@ import sqlite3
 
 class Database:
     def __init__(self, db_name):
-        self.conn = sqlite3.connect(db_name)
+        self.conn = sqlite3.connect(db_name, isolation_level="DEFERRED")
         self.cursor = self.conn.cursor()
         self.create_tables()
 
@@ -146,7 +146,7 @@ class Database:
     def insert_transaction(self, description, currency_id):
         self.cursor.execute("INSERT INTO transactions (description, currency_id) VALUES (?, ?)",
                             (description, currency_id))
-        self.conn.commit()
+        #self.conn.commit()
         return self.cursor.lastrowid
 
     def get_transactions(self):
@@ -433,7 +433,7 @@ class Database:
         self.cursor.execute(
             "INSERT INTO transaction_lines (transaction_id, account_id, debit, credit, date, classification_id) VALUES (?, ?, ?, ?, ?, ?)",
             (transaction_id, account_id, debit, credit, date, classification_id))
-        self.conn.commit()
+        #self.conn.commit()
         return self.cursor.lastrowid
 
     def get_transaction_line(self, id):
