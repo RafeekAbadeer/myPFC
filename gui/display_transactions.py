@@ -450,6 +450,9 @@ def add_transaction(parent, table_view):
         account_combo = QComboBox()
         account_combo.addItems(accounts)
 
+        classification_combo = QComboBox()
+        classification_combo.addItem("(None)")
+
         amount_edit = QLineEdit()
         amount_edit.setValidator(QDoubleValidator())
         if amount:
@@ -461,6 +464,7 @@ def add_transaction(parent, table_view):
         remove_btn = QPushButton("Remove")
 
         line_layout.addWidget(account_combo, 3)
+        line_layout.addWidget(classification_combo, 2)
         line_layout.addWidget(amount_edit, 2)
         line_layout.addWidget(line_date_edit, 2)
         line_layout.addWidget(remove_btn, 1)
@@ -471,6 +475,7 @@ def add_transaction(parent, table_view):
         line_data = {
             'widget': line_widget,
             'account': account_combo,
+            'classification': classification_combo,
             'amount': amount_edit,
             'date': line_date_edit,
             'remove': remove_btn
@@ -480,6 +485,8 @@ def add_transaction(parent, table_view):
         # Connect signals
         amount_edit.textChanged.connect(update_remaining_amount)
         remove_btn.clicked.connect(lambda: remove_credit_line(line_data))
+        account_combo.currentIndexChanged.connect(
+            lambda index: update_classification_combo(classification_combo, accounts[index]))
 
         return line_data
 
@@ -516,6 +523,9 @@ def add_transaction(parent, table_view):
         account_combo = QComboBox()
         account_combo.addItems(accounts)
 
+        classification_combo = QComboBox()
+        classification_combo.addItem("(None)")
+
         amount_edit = QLineEdit()
         amount_edit.setValidator(QDoubleValidator())
         if amount:
@@ -527,6 +537,7 @@ def add_transaction(parent, table_view):
         remove_btn = QPushButton("Remove")
 
         line_layout.addWidget(account_combo, 3)
+        line_layout.addWidget(classification_combo, 2)
         line_layout.addWidget(amount_edit, 2)
         line_layout.addWidget(line_date_edit, 2)
         line_layout.addWidget(remove_btn, 1)
@@ -537,6 +548,7 @@ def add_transaction(parent, table_view):
         line_data = {
             'widget': line_widget,
             'account': account_combo,
+            'classification': classification_combo,
             'amount': amount_edit,
             'date': line_date_edit,
             'remove': remove_btn
@@ -546,8 +558,19 @@ def add_transaction(parent, table_view):
         # Connect signals
         amount_edit.textChanged.connect(update_remaining_amount)
         remove_btn.clicked.connect(lambda: remove_debit_line(line_data))
+        account_combo.currentIndexChanged.connect(
+            lambda index: update_classification_combo(classification_combo, accounts[index]))
 
         return line_data
+
+    # Function to update classification combo based on selected account
+    def update_classification_combo(combo, account_name):
+        combo.clear()
+        combo.addItem("(None)")
+        account_id = db.get_account_id(account_name)
+        classifications = db.get_classifications_for_account(account_id)
+        for classification in classifications:
+            combo.addItem(classification[1])
 
     def remove_debit_line(line_data):
         debit_line_widgets.remove(line_data)
@@ -655,11 +678,18 @@ def add_transaction(parent, table_view):
 
                     account_id = db.get_account_id(line['account'].currentText())
                     line_date = line['date'].date().toString("yyyy-MM-dd")
+                    classification_name = line['classification'].currentText()
+                    classification_id = None
+                    if classification_name != "(None)":
+                        classification = db.get_classification_by_name(classification_name)
+                        if classification:
+                            classification_id = classification[0]
 
                     credit_lines.append({
                         'account_id': account_id,
                         'amount': amount,
-                        'date': line_date
+                        'date': line_date,
+                        'classification_id': classification_id
                     })
                 except ValueError:
                     pass
@@ -673,11 +703,18 @@ def add_transaction(parent, table_view):
 
                     account_id = db.get_account_id(line['account'].currentText())
                     line_date = line['date'].date().toString("yyyy-MM-dd")
+                    classification_name = line['classification'].currentText()
+                    classification_id = None
+                    if classification_name != "(None)":
+                        classification = db.get_classification_by_name(classification_name)
+                        if classification:
+                            classification_id = classification[0]
 
                     debit_lines.append({
                         'account_id': account_id,
                         'amount': amount,
-                        'date': line_date
+                        'date': line_date,
+                        'classification_id': classification_id
                     })
                 except ValueError:
                     pass
@@ -727,7 +764,9 @@ def save_complete_transaction(description, currency_id, transaction_date, credit
                 line['account_id'],
                 debit=None,
                 credit=line['amount'],
-                date=line['date']
+                date=line['date'],
+                classification_id=line['classification_id']
+
             )
 
         # Insert debit lines
@@ -737,7 +776,9 @@ def save_complete_transaction(description, currency_id, transaction_date, credit
                 line['account_id'],
                 debit=line['amount'],
                 credit=None,
-                date=line['date']
+                date=line['date'],
+                classification_id=line['classification_id']
+
             )
 
         # Commit transaction
