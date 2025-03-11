@@ -477,20 +477,20 @@ class Database:
         self.cursor.execute("DELETE FROM transaction_lines WHERE id = ?", (id,))
         self.conn.commit()
 
-    def begin_transaction():
+    def begin_transaction(self):
         """Begin a database transaction"""
-        conn = db.get_connection()
-        conn.execute("BEGIN TRANSACTION")
+        #conn = db.get_connection()
+        self.conn.execute("BEGIN TRANSACTION")
 
-    def commit_transaction():
+    def commit_transaction(self):
         """Commit a database transaction"""
-        conn = db.get_connection()
-        conn.execute("COMMIT")
+        #conn = db.get_connection()
+        self.conn.execute("COMMIT")
 
-    def rollback_transaction():
+    def rollback_transaction(self):
         """Rollback a database transaction"""
-        conn = db.get_connection()
-        conn.execute("ROLLBACK")
+        #conn = db.get_connection()
+        self.conn.execute("ROLLBACK")
 
 # Initialize the database
 db = Database('finance.db')

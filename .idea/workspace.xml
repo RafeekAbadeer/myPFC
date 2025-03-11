@@ -8,7 +8,6 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/database.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/finance.db" beforeDir="false" afterPath="$PROJECT_DIR$/finance.db" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/display_transactions.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_transactions.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,11 +54,11 @@
     "Python.Test.executor": "Run",
     "Python.column_headers.executor": "Run",
     "Python.data_display.executor": "Run",
-    "Python.database.executor": "Run",
+    "Python.database.executor": "Debug",
     "Python.dialog_utils.executor": "Run",
     "Python.display_accounts.executor": "Run",
     "Python.display_currencies.executor": "Run",
-    "Python.display_transactions.executor": "Debug",
+    "Python.display_transactions.executor": "Run",
     "Python.general_gui.executor": "Run",
     "Python.main.executor": "Debug",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -165,7 +164,15 @@
       <option name="project" value="LOCAL" />
       <updated>1741716277429</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="testing display_transactions.py">
+      <option name="closed" value="true" />
+      <created>1741719465577</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1741719465577</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="UnknownFeatures">
