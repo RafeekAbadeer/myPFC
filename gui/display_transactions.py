@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import (QVBoxLayout, QTableView, QAction, QMessageBox, QHeaderView,
-                             QWidget, QToolBar, QSplitter, QLabel, QHBoxLayout, QPushButton)
-from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon
+                             QWidget, QToolBar, QSplitter, QLabel, QHBoxLayout, QPushButton, QDialog, QGroupBox,
+                             QGridLayout, QLineEdit, QDateEdit,QComboBox, QDialogButtonBox)
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon, QDoubleValidator
 from PyQt5.QtCore import Qt, QSortFilterProxyModel, QDate
 from gui.dialog_utils import show_entity_dialog
 from database import db
