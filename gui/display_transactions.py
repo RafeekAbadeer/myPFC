@@ -731,11 +731,9 @@ def add_transaction(parent, table_view):
                 raise ValueError("At least one credit and one debit line are required")
 
             # Save transaction and lines
-            transaction_date = date_edit.date().toString("yyyy-MM-dd")
             save_complete_transaction(
                 description_edit.text(),
                 currency_id,
-                transaction_date,
                 credit_lines,
                 debit_lines
             )
@@ -748,7 +746,7 @@ def add_transaction(parent, table_view):
             QMessageBox.critical(parent, "Error", f"Failed to add transaction: {e}")
 
 
-def save_complete_transaction(description, currency_id, transaction_date, credit_lines, debit_lines):
+def save_complete_transaction(description, currency_id, credit_lines, debit_lines):
     """Save a complete transaction with all its lines in one operation"""
     try:
         # Start a transaction
