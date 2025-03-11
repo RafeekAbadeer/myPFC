@@ -155,7 +155,7 @@ class Database:
 
     def get_transaction_lines(self, transaction_id):
         self.cursor.execute('''
-            SELECT tl.id, tl.transaction_id, tl.account_id, tl.debit, tl.credit, tl.date, t.currency_id
+            SELECT tl.id, tl.transaction_id, tl.account_id, tl.debit, tl.credit, tl.date, t.currency_id, tl.classification_id
             FROM transaction_lines tl
             JOIN transactions t ON tl.transaction_id = t.id
             WHERE tl.transaction_id = ?

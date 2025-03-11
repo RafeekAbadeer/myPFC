@@ -4,10 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="testing display_transactions.py">
+    <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="Saving transaction works with classifications for transaction lines">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/database.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/finance.db" beforeDir="false" afterPath="$PROJECT_DIR$/finance.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/display_transactions.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_transactions.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -58,7 +59,7 @@
     "Python.dialog_utils.executor": "Run",
     "Python.display_accounts.executor": "Run",
     "Python.display_currencies.executor": "Run",
-    "Python.display_transactions.executor": "Run",
+    "Python.display_transactions.executor": "Debug",
     "Python.general_gui.executor": "Run",
     "Python.main.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -180,7 +181,31 @@
       <option name="project" value="LOCAL" />
       <updated>1741722853613</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="Saving transaction works without classifications for transaction lines">
+      <option name="closed" value="true" />
+      <created>1741726337361</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1741726337361</updated>
+    </task>
+    <task id="LOCAL-00013" summary="Saving transaction works with classifications for transaction lines">
+      <option name="closed" value="true" />
+      <created>1741730595735</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1741730595735</updated>
+    </task>
+    <task id="LOCAL-00014" summary="Saving transaction works with classifications for transaction lines">
+      <option name="closed" value="true" />
+      <created>1741730849760</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1741730849760</updated>
+    </task>
+    <option name="localTasksCounter" value="15" />
     <servers />
   </component>
   <component name="UnknownFeatures">
@@ -206,15 +231,22 @@
     <MESSAGE value="Classification GUI is added" />
     <MESSAGE value="Classification assignment/unassignment added to accounts" />
     <MESSAGE value="testing display_transactions.py" />
-    <option name="LAST_COMMIT_MESSAGE" value="testing display_transactions.py" />
+    <MESSAGE value="Saving transaction works without classifications for transaction lines" />
+    <MESSAGE value="Saving transaction works with classifications for transaction lines" />
+    <option name="LAST_COMMIT_MESSAGE" value="Saving transaction works with classifications for transaction lines" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/gui/display_transactions.py</url>
-          <line>391</line>
-          <option name="timeStamp" value="2" />
+          <line>646</line>
+          <option name="timeStamp" value="5" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/gui/display_transactions.py</url>
+          <line>265</line>
+          <option name="timeStamp" value="7" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

@@ -66,38 +66,12 @@ def display_transactions(content_frame, toolbar):
     debit_label = QLabel("<h3>Debit Lines</h3>")
     lines_layout.addWidget(debit_label)
 
-    # Debit lines toolbar
-    debit_toolbar = QToolBar()
-    lines_layout.addWidget(debit_toolbar)
-
-    # Add actions for debit lines
-    add_debit_action = QAction(QIcon('icons/add.png'), "Add Debit Line", debit_toolbar)
-    edit_debit_action = QAction(QIcon('icons/edit.png'), "Edit Debit Line", debit_toolbar)
-    delete_debit_action = QAction(QIcon('icons/delete.png'), "Delete Debit Line", debit_toolbar)
-
-    debit_toolbar.addAction(add_debit_action)
-    debit_toolbar.addAction(edit_debit_action)
-    debit_toolbar.addAction(delete_debit_action)
-
     # Create debit lines table
     debit_table = QTableView()
     lines_layout.addWidget(debit_table)
 
     credit_label = QLabel("<h3>Credit Lines</h3>")
     lines_layout.addWidget(credit_label)
-
-    # Credit lines toolbar
-    credit_toolbar = QToolBar()
-    lines_layout.addWidget(credit_toolbar)
-
-    # Add actions for credit lines
-    add_credit_action = QAction(QIcon('icons/add.png'), "Add Credit Line", credit_toolbar)
-    edit_credit_action = QAction(QIcon('icons/edit.png'), "Edit Credit Line", credit_toolbar)
-    delete_credit_action = QAction(QIcon('icons/delete.png'), "Delete Credit Line", credit_toolbar)
-
-    credit_toolbar.addAction(add_credit_action)
-    credit_toolbar.addAction(edit_credit_action)
-    credit_toolbar.addAction(delete_credit_action)
 
     # Create credit lines table
     credit_table = QTableView()
@@ -127,19 +101,6 @@ def display_transactions(content_frame, toolbar):
     edit_action.triggered.connect(lambda: edit_transaction(content_frame, transactions_table))
     delete_action.triggered.connect(lambda: delete_transaction(content_frame, transactions_table))
     filter_action.triggered.connect(lambda: filter_transactions(content_frame, transactions_table))
-
-    # Connect actions for transaction lines
-    add_debit_action.triggered.connect(
-        lambda: add_transaction_line(content_frame, transactions_table, debit_table, True))
-    edit_debit_action.triggered.connect(lambda: edit_transaction_line(content_frame, debit_table))
-    delete_debit_action.triggered.connect(
-        lambda: delete_transaction_line(content_frame, debit_table, transactions_table))
-
-    add_credit_action.triggered.connect(
-        lambda: add_transaction_line(content_frame, transactions_table, credit_table, False))
-    edit_credit_action.triggered.connect(lambda: edit_transaction_line(content_frame, credit_table))
-    delete_credit_action.triggered.connect(
-        lambda: delete_transaction_line(content_frame, credit_table, transactions_table))
 
     # Load initial transaction data
     load_transactions(transactions_table)
@@ -308,6 +269,7 @@ def load_transaction_lines(table_view, transaction_id, is_debit=True):
         debit = line[3] if line[3] else 0
         credit = line[4] if line[4] else 0
         date = line[5]
+        classification_id = line[7]
 
         # Skip lines that don't match the requested type (debit/credit)
         if is_debit and not debit:
@@ -320,11 +282,13 @@ def load_transaction_lines(table_view, transaction_id, is_debit=True):
         account_name = account_data[1] if account_data else "Unknown"
 
         # Get classification name if available
-        classification_id = line[6] if len(line) > 6 else None
+        #classification_id = line[6] if len(line) > 6 else None
         classification_name = ""
         if classification_id:
             classification_data = db.get_classification_by_id(classification_id)
-            classification_name = classification_data[1] if classification_data else ""
+            #classification_name = classification_data[1] if classification_data else ""
+            if classification_data:
+                classification_name = classification_data[1]
 
         id_item = QStandardItem(str(line_id))
         account_item = QStandardItem(account_name)
@@ -957,7 +921,6 @@ def edit_transaction_line(parent, lines_table):
     ]
 
     # Get current transaction line data
-    # We need to implement this method in database.py
     line_data = db.get_transaction_line(line_id)
 
     if not line_data:
@@ -1115,4 +1078,3 @@ def filter_transactions(parent, table_view):
 
         # Reload transactions with filter
         load_transactions(table_view, limit=None, filter_params=filter_params)
-
