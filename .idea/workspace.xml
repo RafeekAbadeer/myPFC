@@ -4,7 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="Classification assignment/unassignment added to accounts" />
+    <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="testing display_transactions.py">
+      <change afterPath="$PROJECT_DIR$/future_features.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/database.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/finance.db" beforeDir="false" afterPath="$PROJECT_DIR$/finance.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/display_transactions.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_transactions.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -21,18 +27,18 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="RESET_MODE" value="HARD" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "RafeekAbadeer"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;RafeekAbadeer&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/RafeekAbadeer/myPFC.git",
-    "accountId": "d919674b-55aa-4eec-add4-f26fdf98e21b"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/RafeekAbadeer/myPFC.git&quot;,
+    &quot;accountId&quot;: &quot;d919674b-55aa-4eec-add4-f26fdf98e21b&quot;
   }
-}]]></component>
+}</component>
   <component name="ProblemsViewState">
     <option name="selectedTabId" value="CurrentFile" />
   </component>
@@ -143,7 +149,15 @@
       <option name="project" value="LOCAL" />
       <updated>1741640781719</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="testing display_transactions.py">
+      <option name="closed" value="true" />
+      <created>1741713896326</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1741713896326</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="UnknownFeatures">
@@ -168,18 +182,10 @@
     <MESSAGE value="Icons added" />
     <MESSAGE value="Classification GUI is added" />
     <MESSAGE value="Classification assignment/unassignment added to accounts" />
-    <option name="LAST_COMMIT_MESSAGE" value="Classification assignment/unassignment added to accounts" />
+    <MESSAGE value="testing display_transactions.py" />
+    <option name="LAST_COMMIT_MESSAGE" value="testing display_transactions.py" />
   </component>
   <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/database.py</url>
-          <line>390</line>
-          <option name="timeStamp" value="1" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
     <watches-manager>
       <configuration name="PythonConfigurationType">
         <watch expression="column_names" language="Python" />

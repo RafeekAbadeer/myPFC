@@ -215,47 +215,83 @@ def load_transactions(table_view, limit=20, filter_params=None):
     # Sort by date descending by default (most recent first)
     table_view.sortByColumn(3, Qt.DescendingOrder)
 
-
 def get_transactions_with_summary(limit=20, filter_params=None):
     """Get transactions from database with summary information"""
-    # Implementation would depend on your database schema
-    # Here's a mockup of what the query might do:
-    # 1. Get latest transactions
-    # 2. Calculate total amount for each
-    # 3. Find earliest date for each
+    # Build the query dynamically based on filters
+    query = """
+        SELECT t.id, t.description, t.currency_id, 
+               SUM(IFNULL(tl.debit, 0)) as total_debit,
+               MIN(tl.date) as earliest_date
+        FROM transactions t
+        LEFT JOIN transaction_lines tl ON t.id = tl.transaction_id
+    """
 
-    transactions = db.get_transactions()
+    where_clauses = []
+    params = []
+
+    # Apply filters if provided
+    if filter_params:
+        if 'date_from' in filter_params:
+            where_clauses.append("tl.date >= ?")
+            params.append(filter_params['date_from'])
+
+        if 'date_to' in filter_params:
+            where_clauses.append("tl.date <= ?")
+            params.append(filter_params['date_to'])
+
+        if 'account_id' in filter_params:
+            where_clauses.append("tl.account_id = ?")
+            params.append(filter_params['account_id'])
+
+        if 'description' in filter_params:
+            where_clauses.append("t.description LIKE ?")
+            params.append(f"%{filter_params['description']}%")
+
+    # Add WHERE clause if we have conditions
+    if where_clauses:
+        query += " WHERE " + " AND ".join(where_clauses)
+
+    # Group by transaction and order by date
+    query += " GROUP BY t.id, t.description, t.currency_id ORDER BY earliest_date DESC"
+
+    # Apply limit if specified
+    if limit:
+        query += f" LIMIT {limit}"
+
+    # Execute the query
+    cursor = db.conn.cursor()
+    cursor.execute(query, params)
+    transactions_data = cursor.fetchall()
+
     result = []
-
-    for transaction in transactions[:limit]:  # Apply limit
-        transaction_id = transaction[0]
-        description = transaction[1]
-        currency_id = transaction[2]
+    for data in transactions_data:
+        transaction_id = data[0]
+        description = data[1]
+        currency_id = data[2]
+        total_debit = data[3] or 0
+        earliest_date = data[4] or "N/A"
 
         # Get currency name
         currency_data = db.get_currency_by_id(currency_id)
         currency_name = currency_data[1] if currency_data else "Unknown"
 
-        # Get transaction lines
-        lines = db.get_transaction_lines(transaction_id)
+        # Apply amount filters if specified
+        if filter_params:
+            if 'min_amount' in filter_params and total_debit < filter_params['min_amount']:
+                continue
 
-        # Calculate total amount (sum of debits or credits)
-        total_debit = sum(line[3] if line[3] else 0 for line in lines)
-
-        # Find earliest date
-        dates = [line[5] for line in lines if line[5]]
-        earliest_date = min(dates) if dates else "N/A"
+            if 'max_amount' in filter_params and total_debit > filter_params['max_amount']:
+                continue
 
         result.append({
             'id': transaction_id,
             'description': description,
-            'amount': total_debit,  # Using debit total as the displayed amount
+            'amount': total_debit,
             'date': earliest_date,
             'currency': currency_name
         })
 
     return result
-
 
 def load_transaction_lines(table_view, transaction_id, is_debit=True):
     """Load transaction lines into the appropriate table view"""
@@ -349,36 +385,368 @@ def update_transaction_lines_display(transactions_table, lines_widget, debit_tab
     load_transaction_lines(debit_table, transaction_id, is_debit=True)
     load_transaction_lines(credit_table, transaction_id, is_debit=False)
 
-
 def add_transaction(parent, table_view):
-    """Add a new transaction"""
+    """Add a new transaction with a comprehensive form collecting all data at once"""
     # Get currencies for dropdown
     currencies = [curr[1] for curr in db.get_all_currencies()]
 
-    fields = [
-        {'id': 'description', 'label': 'Description', 'type': 'text', 'required': True},
-        {'id': 'currency', 'label': 'Currency', 'type': 'combobox', 'options': currencies, 'required': True},
-    ]
+    # Get accounts for dropdown
+    accounts = [acc[1] for acc in db.get_all_accounts()]
 
-    data = show_entity_dialog(parent, "Add Transaction", fields)
+    # Create a custom dialog for the comprehensive transaction entry
+    dialog = QDialog(parent)
+    dialog.setWindowTitle("Add Transaction")
+    dialog.setMinimumWidth(700)
+    dialog.setMinimumHeight(500)
 
-    if data:
+    layout = QVBoxLayout(dialog)
+
+    # Transaction header section
+    header_group = QGroupBox("Transaction Details")
+    header_layout = QGridLayout(header_group)
+
+    # Add header fields: description, amount, date, currency
+    header_layout.addWidget(QLabel("Description:"), 0, 0)
+    description_edit = QLineEdit()
+    header_layout.addWidget(description_edit, 0, 1, 1, 3)
+
+    header_layout.addWidget(QLabel("Total Amount:"), 1, 0)
+    total_amount_edit = QLineEdit()
+    total_amount_edit.setValidator(QDoubleValidator())
+    header_layout.addWidget(total_amount_edit, 1, 1)
+
+    header_layout.addWidget(QLabel("Date:"), 1, 2)
+    date_edit = QDateEdit(QDate.currentDate())
+    date_edit.setCalendarPopup(True)
+    header_layout.addWidget(date_edit, 1, 3)
+
+    header_layout.addWidget(QLabel("Currency:"), 2, 0)
+    currency_combo = QComboBox()
+    currency_combo.addItems(currencies)
+    # Set default to EGP if available
+    default_index = currencies.index("EGP") if "EGP" in currencies else 0
+    currency_combo.setCurrentIndex(default_index)
+    header_layout.addWidget(currency_combo, 2, 1)
+
+    layout.addWidget(header_group)
+
+    # Credit lines section
+    credit_group = QGroupBox("Credit Lines")
+    credit_layout = QVBoxLayout(credit_group)
+
+    credit_lines_widget = QWidget()
+    credit_lines_layout = QVBoxLayout(credit_lines_widget)
+    credit_lines_layout.setContentsMargins(0, 0, 0, 0)
+
+    # Function to add a credit line row
+    credit_line_widgets = []
+
+    def add_credit_line(amount=None):
+        line_widget = QWidget()
+        line_layout = QHBoxLayout(line_widget)
+        line_layout.setContentsMargins(0, 0, 0, 0)
+
+        account_combo = QComboBox()
+        account_combo.addItems(accounts)
+
+        amount_edit = QLineEdit()
+        amount_edit.setValidator(QDoubleValidator())
+        if amount:
+            amount_edit.setText(str(amount))
+
+        line_date_edit = QDateEdit(date_edit.date())
+        line_date_edit.setCalendarPopup(True)
+
+        remove_btn = QPushButton("Remove")
+
+        line_layout.addWidget(account_combo, 3)
+        line_layout.addWidget(amount_edit, 2)
+        line_layout.addWidget(line_date_edit, 2)
+        line_layout.addWidget(remove_btn, 1)
+
+        credit_lines_layout.addWidget(line_widget)
+
+        # Add to tracking list
+        line_data = {
+            'widget': line_widget,
+            'account': account_combo,
+            'amount': amount_edit,
+            'date': line_date_edit,
+            'remove': remove_btn
+        }
+        credit_line_widgets.append(line_data)
+
+        # Connect signals
+        amount_edit.textChanged.connect(update_remaining_amount)
+        remove_btn.clicked.connect(lambda: remove_credit_line(line_data))
+
+        return line_data
+
+    def remove_credit_line(line_data):
+        credit_line_widgets.remove(line_data)
+        line_data['widget'].deleteLater()
+        update_remaining_amount()
+
+    credit_layout.addWidget(credit_lines_widget)
+
+    # Add button for credit lines
+    add_credit_btn = QPushButton("Add Credit Line")
+    add_credit_btn.clicked.connect(lambda: add_credit_line())
+    credit_layout.addWidget(add_credit_btn)
+
+    layout.addWidget(credit_group)
+
+    # Debit lines section (similar to credit lines)
+    debit_group = QGroupBox("Debit Lines")
+    debit_layout = QVBoxLayout(debit_group)
+
+    debit_lines_widget = QWidget()
+    debit_lines_layout = QVBoxLayout(debit_lines_widget)
+    debit_lines_layout.setContentsMargins(0, 0, 0, 0)
+
+    # Function to add a debit line row
+    debit_line_widgets = []
+
+    def add_debit_line(amount=None):
+        line_widget = QWidget()
+        line_layout = QHBoxLayout(line_widget)
+        line_layout.setContentsMargins(0, 0, 0, 0)
+
+        account_combo = QComboBox()
+        account_combo.addItems(accounts)
+
+        amount_edit = QLineEdit()
+        amount_edit.setValidator(QDoubleValidator())
+        if amount:
+            amount_edit.setText(str(amount))
+
+        line_date_edit = QDateEdit(date_edit.date())
+        line_date_edit.setCalendarPopup(True)
+
+        remove_btn = QPushButton("Remove")
+
+        line_layout.addWidget(account_combo, 3)
+        line_layout.addWidget(amount_edit, 2)
+        line_layout.addWidget(line_date_edit, 2)
+        line_layout.addWidget(remove_btn, 1)
+
+        debit_lines_layout.addWidget(line_widget)
+
+        # Add to tracking list
+        line_data = {
+            'widget': line_widget,
+            'account': account_combo,
+            'amount': amount_edit,
+            'date': line_date_edit,
+            'remove': remove_btn
+        }
+        debit_line_widgets.append(line_data)
+
+        # Connect signals
+        amount_edit.textChanged.connect(update_remaining_amount)
+        remove_btn.clicked.connect(lambda: remove_debit_line(line_data))
+
+        return line_data
+
+    def remove_debit_line(line_data):
+        debit_line_widgets.remove(line_data)
+        line_data['widget'].deleteLater()
+        update_remaining_amount()
+
+    debit_layout.addWidget(debit_lines_widget)
+
+    # Add button for debit lines
+    add_debit_btn = QPushButton("Add Debit Line")
+    add_debit_btn.clicked.connect(lambda: add_debit_line())
+    debit_layout.addWidget(add_debit_btn)
+
+    layout.addWidget(debit_group)
+
+    # Summary section
+    summary_widget = QWidget()
+    summary_layout = QHBoxLayout(summary_widget)
+
+    credit_total_label = QLabel("Credit Total: 0.00")
+    debit_total_label = QLabel("Debit Total: 0.00")
+    balance_label = QLabel("Balance: 0.00")
+
+    summary_layout.addWidget(credit_total_label)
+    summary_layout.addWidget(debit_total_label)
+    summary_layout.addWidget(balance_label)
+
+    layout.addWidget(summary_widget)
+
+    # Function to update remaining amounts
+    def update_remaining_amount():
         try:
-            # Get currency ID
-            currency_id = db.get_currency_id(data['currency'])
+            total_amount = float(total_amount_edit.text() or 0)
 
-            # Insert transaction
-            transaction_id = db.insert_transaction(data['description'], currency_id)
+            # Calculate credit total
+            credit_total = 0
+            for line in credit_line_widgets:
+                try:
+                    credit_total += float(line['amount'].text() or 0)
+                except ValueError:
+                    pass
+
+            # Calculate debit total
+            debit_total = 0
+            for line in debit_line_widgets:
+                try:
+                    debit_total += float(line['amount'].text() or 0)
+                except ValueError:
+                    pass
+
+            # Update display
+            credit_total_label.setText(f"Credit Total: {credit_total:.2f}")
+            debit_total_label.setText(f"Debit Total: {debit_total:.2f}")
+
+            # Calculate balance
+            balance = debit_total - credit_total
+            balance_label.setText(f"Balance: {balance:.2f}")
+
+            # Color code balance
+            if abs(balance) < 0.01:  # Allow for minor floating point differences
+                balance_label.setStyleSheet("color: green;")
+            else:
+                balance_label.setStyleSheet("color: red;")
+        except ValueError:
+            pass
+
+    # Connect header signals
+    total_amount_edit.textChanged.connect(update_remaining_amount)
+    date_edit.dateChanged.connect(lambda date: update_line_dates(date))
+
+    def update_line_dates(new_date):
+        for line in credit_line_widgets + debit_line_widgets:
+            line['date'].setDate(new_date)
+
+    # Buttons
+    button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+    button_box.accepted.connect(dialog.accept)
+    button_box.rejected.connect(dialog.reject)
+    layout.addWidget(button_box)
+
+    # Add first credit line by default
+    add_credit_line()
+
+    # Show dialog
+    if dialog.exec_() == QDialog.Accepted:
+        try:
+            # Validate transaction
+            if not description_edit.text().strip():
+                raise ValueError("Description is required")
+
+            total_amount = float(total_amount_edit.text() or 0)
+            if total_amount <= 0:
+                raise ValueError("Total amount must be greater than zero")
+
+            # Get currency ID
+            currency_id = db.get_currency_id(currency_combo.currentText())
+
+            # Get credit and debit lines
+            credit_lines = []
+            for line in credit_line_widgets:
+                try:
+                    amount = float(line['amount'].text() or 0)
+                    if amount <= 0:
+                        continue  # Skip lines with zero or negative amounts
+
+                    account_id = db.get_account_id(line['account'].currentText())
+                    line_date = line['date'].date().toString("yyyy-MM-dd")
+
+                    credit_lines.append({
+                        'account_id': account_id,
+                        'amount': amount,
+                        'date': line_date
+                    })
+                except ValueError:
+                    pass
+
+            debit_lines = []
+            for line in debit_line_widgets:
+                try:
+                    amount = float(line['amount'].text() or 0)
+                    if amount <= 0:
+                        continue  # Skip lines with zero or negative amounts
+
+                    account_id = db.get_account_id(line['account'].currentText())
+                    line_date = line['date'].date().toString("yyyy-MM-dd")
+
+                    debit_lines.append({
+                        'account_id': account_id,
+                        'amount': amount,
+                        'date': line_date
+                    })
+                except ValueError:
+                    pass
+
+            # Calculate totals for final check
+            credit_total = sum(line['amount'] for line in credit_lines)
+            debit_total = sum(line['amount'] for line in debit_lines)
+
+            # Verify balanced transaction
+            if abs(credit_total - debit_total) > 0.01:  # Allow for minor floating point differences
+                raise ValueError(f"Transaction is not balanced. Credit: {credit_total:.2f}, Debit: {debit_total:.2f}")
+
+            if not credit_lines or not debit_lines:
+                raise ValueError("At least one credit and one debit line are required")
+
+            # Save transaction and lines
+            transaction_date = date_edit.date().toString("yyyy-MM-dd")
+            save_complete_transaction(
+                description_edit.text(),
+                currency_id,
+                transaction_date,
+                credit_lines,
+                debit_lines
+            )
 
             # Reload transactions
             load_transactions(table_view)
 
-            # Show message about adding transaction lines
-            QMessageBox.information(parent, "Transaction Added",
-                                    "Transaction added successfully. Please add transaction lines next.")
+            QMessageBox.information(parent, "Success", "Transaction added successfully.")
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to add transaction: {e}")
 
+
+def save_complete_transaction(description, currency_id, transaction_date, credit_lines, debit_lines):
+    """Save a complete transaction with all its lines in one operation"""
+    try:
+        # Start a transaction
+        db.begin_transaction()
+
+        # Insert transaction
+        transaction_id = db.insert_transaction(description, currency_id)
+
+        # Insert credit lines
+        for line in credit_lines:
+            db.insert_transaction_line(
+                transaction_id,
+                line['account_id'],
+                debit=None,
+                credit=line['amount'],
+                date=line['date']
+            )
+
+        # Insert debit lines
+        for line in debit_lines:
+            db.insert_transaction_line(
+                transaction_id,
+                line['account_id'],
+                debit=line['amount'],
+                credit=None,
+                date=line['date']
+            )
+
+        # Commit transaction
+        db.commit_transaction()
+
+        return transaction_id
+    except Exception as e:
+        # Rollback on error
+        db.rollback_transaction()
+        raise e
 
 def edit_transaction(parent, table_view):
     """Edit an existing transaction"""
@@ -707,3 +1075,4 @@ def filter_transactions(parent, table_view):
 
         # Reload transactions with filter
         load_transactions(table_view, limit=None, filter_params=filter_params)
+

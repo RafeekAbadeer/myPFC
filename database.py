@@ -153,16 +153,6 @@ class Database:
         self.cursor.execute("SELECT * FROM transactions")
         return self.cursor.fetchall()
 
-
-    def insert_transaction_line(self, transaction_id, account_id, debit=None, credit=None, date=None):
-        if debit is None and credit is None:
-            raise ValueError("Either debit or credit must be specified")
-        self.cursor.execute(
-            "INSERT INTO transaction_lines (transaction_id, account_id, debit, credit, date) VALUES (?, ?, ?, ?, ?)",
-            (transaction_id, account_id, debit, credit, date))
-        self.conn.commit()
-        return self.cursor.lastrowid
-
     def get_transaction_lines(self, transaction_id):
         self.cursor.execute('''
             SELECT tl.id, tl.transaction_id, tl.account_id, tl.debit, tl.credit, tl.date, t.currency_id
@@ -422,6 +412,69 @@ class Database:
             "DELETE FROM account_classifications WHERE account_id = ? AND classification_id = ?",
             (account_id, classification_id)
         )
+        self.conn.commit()
+
+    def update_transaction(self, id, description, currency_id):
+        self.cursor.execute("UPDATE transactions SET description = ?, currency_id = ? WHERE id = ?",
+                            (description, currency_id, id))
+        self.conn.commit()
+
+    def delete_transaction(self, id):
+        # First delete all associated transaction lines (using foreign key constraints)
+        self.cursor.execute("DELETE FROM transaction_lines WHERE transaction_id = ?", (id,))
+        # Then delete the transaction itself
+        self.cursor.execute("DELETE FROM transactions WHERE id = ?", (id,))
+        self.conn.commit()
+
+    def insert_transaction_line(self, transaction_id, account_id, debit=None, credit=None, date=None,
+                                classification_id=None):
+        if debit is None and credit is None:
+            raise ValueError("Either debit or credit must be specified")
+        self.cursor.execute(
+            "INSERT INTO transaction_lines (transaction_id, account_id, debit, credit, date, classification_id) VALUES (?, ?, ?, ?, ?, ?)",
+            (transaction_id, account_id, debit, credit, date, classification_id))
+        self.conn.commit()
+        return self.cursor.lastrowid
+
+    def get_transaction_line(self, id):
+        self.cursor.execute("""
+            SELECT tl.id, tl.transaction_id, tl.account_id, tl.debit, tl.credit, tl.date, tl.classification_id,
+                   a.name as account_name, t.currency_id
+            FROM transaction_lines tl
+            JOIN accounts a ON tl.account_id = a.id
+            JOIN transactions t ON tl.transaction_id = t.id
+            WHERE tl.id = ?
+        """, (id,))
+
+        result = self.cursor.fetchone()
+        if result:
+            # Determine if this is a debit or credit line
+            line_type = "Debit" if result[3] else "Credit"
+
+            return {
+                'id': result[0],
+                'transaction_id': result[1],
+                'account_id': result[2],
+                'debit': result[3],
+                'credit': result[4],
+                'date': result[5],
+                'classification_id': result[6],
+                'account_name': result[7],
+                'currency_id': result[8],
+                'type': line_type
+            }
+        return None
+
+    def update_transaction_line(self, id, account_id, debit=None, credit=None, date=None, classification_id=None):
+        self.cursor.execute("""
+            UPDATE transaction_lines 
+            SET account_id = ?, debit = ?, credit = ?, date = ?, classification_id = ?
+            WHERE id = ?
+        """, (account_id, debit, credit, date, classification_id, id))
+        self.conn.commit()
+
+    def delete_transaction_line(self, id):
+        self.cursor.execute("DELETE FROM transaction_lines WHERE id = ?", (id,))
         self.conn.commit()
 
 # Initialize the database
