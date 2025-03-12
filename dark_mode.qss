@@ -84,7 +84,13 @@ QTableCornerButton::section {
   background-color: #313131;
 }
 
-
+/* Wizard */
+QWizard {
+  background-color: #3c3c3c;
+}
+QWizardPage {
+  background-color: #3c3c3c;
+}
 
 /* Table View */
 QTableView {
