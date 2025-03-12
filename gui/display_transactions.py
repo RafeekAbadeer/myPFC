@@ -56,6 +56,12 @@ def display_transactions(content_frame, toolbar):
     transactions_table = QTableView()
     transactions_layout.addWidget(transactions_table)
 
+    # Make transactions table non-editable
+    transactions_table.setEditTriggers(QTableView.NoEditTriggers)
+
+    # Select entire rows
+    transactions_table.setSelectionBehavior(QTableView.SelectRows)
+
     # Create bottom widget for transaction lines
     lines_widget = QWidget()
     lines_layout = QVBoxLayout(lines_widget)
@@ -70,12 +76,24 @@ def display_transactions(content_frame, toolbar):
     debit_table = QTableView()
     lines_layout.addWidget(debit_table)
 
+    # Make debit lines table non-editable
+    debit_table.setEditTriggers(QTableView.NoEditTriggers)
+
+    # Select entire rows
+    debit_table.setSelectionBehavior(QTableView.SelectRows)
+
     credit_label = QLabel("<h3>Credit Lines</h3>")
     lines_layout.addWidget(credit_label)
 
     # Create credit lines table
     credit_table = QTableView()
     lines_layout.addWidget(credit_table)
+
+    # Make credit lines table non-editable
+    credit_table.setEditTriggers(QTableView.NoEditTriggers)
+
+    # Select entire rows
+    credit_table.setSelectionBehavior(QTableView.SelectRows)
 
     # Hide lines widget initially (will show when transaction is selected)
     lines_widget.setVisible(False)
@@ -119,16 +137,16 @@ def display_transactions(content_frame, toolbar):
 def load_transactions(table_view, limit=20, filter_params=None):
     """Load transactions into the table view"""
     model = QStandardItemModel()
-    model.setHorizontalHeaderLabels(["ID", "Description", "Amount", "Date", "Currency"])
+    model.setHorizontalHeaderLabels(["ID", "Date", "Description", "Amount", "Currency"])
 
     # Get transactions from database (with limit)
     transactions = get_transactions_with_summary(limit, filter_params)
 
     for transaction in transactions:
         transaction_id = transaction['id']
+        date = transaction['date']
         description = transaction['description']
         amount = transaction['amount']
-        date = transaction['date']
         currency = transaction['currency']
 
         id_item = QStandardItem(str(transaction_id))
@@ -143,6 +161,7 @@ def load_transactions(table_view, limit=20, filter_params=None):
 
         # Set UserRole data for proper sorting
         id_item.setData(int(transaction_id), Qt.UserRole)
+        date_item.setData(QDate.fromString(date, "yyyy-MM-dd"), Qt.UserRole)
         description_item.setData(description.lower(), Qt.UserRole)
         amount_item.setData(float(amount), Qt.UserRole)
 
@@ -157,7 +176,7 @@ def load_transactions(table_view, limit=20, filter_params=None):
 
         currency_item.setData(currency.lower(), Qt.UserRole)
 
-        model.appendRow([id_item, description_item, amount_item, date_item, currency_item])
+        model.appendRow([id_item, date_item, description_item, amount_item, currency_item])
 
     # Create proxy model for sorting
     proxy_model = QSortFilterProxyModel()
@@ -168,14 +187,17 @@ def load_transactions(table_view, limit=20, filter_params=None):
     table_view.setModel(proxy_model)
 
     # Set sensible column widths
-    table_view.setColumnWidth(0, 60)  # ID
-    table_view.setColumnWidth(1, 300)  # Description
-    table_view.setColumnWidth(2, 120)  # Amount
-    table_view.setColumnWidth(3, 120)  # Date
-    table_view.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)  # Currency
-
+    # table_view.setColumnWidth(0, 60)  # ID
+    # table_view.setColumnWidth(1, 300)  # Description
+    # table_view.setColumnWidth(2, 120)  # Amount
+    # table_view.setColumnWidth(3, 120)  # Date
+    # table_view.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)  # Currency
+    table_view.resizeColumnsToContents()
     # Sort by date descending by default (most recent first)
-    table_view.sortByColumn(3, Qt.DescendingOrder)
+    table_view.sortByColumn(1, Qt.DescendingOrder)
+
+    # Hide the ID column
+    table_view.hideColumn(0)
 
 def get_transactions_with_summary(limit=20, filter_params=None):
     """Get transactions from database with summary information"""
@@ -258,7 +280,7 @@ def get_transactions_with_summary(limit=20, filter_params=None):
 def load_transaction_lines(table_view, transaction_id, is_debit=True):
     """Load transaction lines into the appropriate table view"""
     model = QStandardItemModel()
-    model.setHorizontalHeaderLabels(["ID", "Account", "Amount", "Date", "Classification"])
+    model.setHorizontalHeaderLabels(["ID", "Date", "Account", "Classification", "Amount"])
 
     # Get transaction lines from database
     lines = db.get_transaction_lines(transaction_id)
@@ -315,7 +337,7 @@ def load_transaction_lines(table_view, transaction_id, is_debit=True):
 
         classification_item.setData(classification_name.lower(), Qt.UserRole)
 
-        model.appendRow([id_item, account_item, amount_item, date_item, classification_item])
+        model.appendRow([id_item, date_item, account_item, classification_item, amount_item])
 
     # Create proxy model for sorting
     proxy_model = QSortFilterProxyModel()
@@ -326,12 +348,15 @@ def load_transaction_lines(table_view, transaction_id, is_debit=True):
     table_view.setModel(proxy_model)
 
     # Set column widths
-    table_view.setColumnWidth(0, 60)  # ID
-    table_view.setColumnWidth(1, 200)  # Account
-    table_view.setColumnWidth(2, 120)  # Amount
-    table_view.setColumnWidth(3, 100)  # Date
-    table_view.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)  # Classification
-
+    # table_view.setColumnWidth(0, 60)  # ID
+    # table_view.setColumnWidth(1, 200)  # Account
+    # table_view.setColumnWidth(2, 120)  # Amount
+    # table_view.setColumnWidth(3, 100)  # Date
+    # table_view.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)  # Classification
+    # Dynamically adjust column widths
+    table_view.resizeColumnsToContents()
+    # Hide the ID column
+    table_view.hideColumn(0)
 
 def update_transaction_lines_display(transactions_table, lines_widget, debit_table, credit_table):
     """Update both transaction line tables when a transaction is selected"""
@@ -373,7 +398,7 @@ def add_transaction(parent, table_view):
     # Add header fields: description, amount, date, currency
     header_layout.addWidget(QLabel("Description:"), 0, 0)
     description_edit = QLineEdit()
-    header_layout.addWidget(description_edit, 0, 1, 1, 3)
+    header_layout.addWidget(description_edit, 0, 1, 1, 5)
 
     header_layout.addWidget(QLabel("Total Amount:"), 1, 0)
     total_amount_edit = QLineEdit()
@@ -385,13 +410,20 @@ def add_transaction(parent, table_view):
     date_edit.setCalendarPopup(True)
     header_layout.addWidget(date_edit, 1, 3)
 
-    header_layout.addWidget(QLabel("Currency:"), 2, 0)
+    header_layout.addWidget(QLabel("Currency:"), 1, 4)
     currency_combo = QComboBox()
     currency_combo.addItems(currencies)
     # Set default to EGP if available
     default_index = currencies.index("EGP") if "EGP" in currencies else 0
     currency_combo.setCurrentIndex(default_index)
-    header_layout.addWidget(currency_combo, 2, 1)
+    header_layout.addWidget(currency_combo, 1, 5)
+
+    header_layout.setColumnStretch(0, 1)  # Label column
+    header_layout.setColumnStretch(1, 2)  # Amount column
+    header_layout.setColumnStretch(2, 1)  # Date label column
+    header_layout.setColumnStretch(3, 2)  # Date column
+    header_layout.setColumnStretch(4, 1)
+    header_layout.setColumnStretch(5, 2)
 
     layout.addWidget(header_group)
 
@@ -782,7 +814,7 @@ def edit_transaction(parent, table_view):
             # Get currency ID
             currency_id = db.get_currency_id(data['currency'])
 
-            # Update transaction (we need to add this function to database.py)
+            # Update transaction
             db.update_transaction(transaction_id, data['description'], currency_id)
 
             # Reload transactions
@@ -813,7 +845,7 @@ def delete_transaction(parent, table_view):
 
     if reply == QMessageBox.Yes:
         try:
-            # Delete transaction (we need to add this function to database.py)
+            # Delete transaction
             db.delete_transaction(transaction_id)
 
             # Reload transactions
@@ -953,7 +985,6 @@ def edit_transaction_line(parent, lines_table):
             is_debit = "Debit" in line_data['type']
 
             # Update transaction line
-            # We need to implement this method in database.py
             if is_debit:
                 db.update_transaction_line(
                     line_id, account_id,
@@ -993,7 +1024,6 @@ def delete_transaction_line(parent, lines_table, transactions_table):
     account_name = row_data["Account"]
 
     # Get transaction ID for this line (needed to reload tables after deletion)
-    # We need to implement this method in database.py
     line_data = db.get_transaction_line(line_id)
     if not line_data:
         QMessageBox.warning(parent, "Warning", "Transaction line not found.")
@@ -1012,7 +1042,6 @@ def delete_transaction_line(parent, lines_table, transactions_table):
     if reply == QMessageBox.Yes:
         try:
             # Delete transaction line
-            # We need to implement this method in database.py
             db.delete_transaction_line(line_id)
 
             # Reload transaction lines
