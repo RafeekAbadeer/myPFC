@@ -127,13 +127,16 @@ def display_transactions(content_frame, toolbar):
     def on_transaction_selected():
         update_transaction_lines_display(transactions_table, lines_widget, debit_table, credit_table)
 
+    # Store the function on the table_view for later reconnection
+    transactions_table._on_transaction_selected = on_transaction_selected
+
     # Connect selection change signal
     transactions_table.selectionModel().selectionChanged.connect(on_transaction_selected)
 
     # Set sensible initial sizes for the splitter
     splitter.setSizes([500, 300])
 
-def load_transactions(table_view, limit=20, filter_params=None):
+def load_transactions(table_view, limit=20, filter_params=None, select_transaction_id=None):
     """Load transactions into the table view"""
     model = QStandardItemModel()
     model.setHorizontalHeaderLabels(["ID", "Date", "Description", "Amount", "Currency"])
@@ -182,16 +185,33 @@ def load_transactions(table_view, limit=20, filter_params=None):
     proxy_model.setSourceModel(model)
     proxy_model.setSortRole(Qt.UserRole)
 
+    # Store the current selection if any and no specific selection is requested
+    selected_transaction_id = None
+    if select_transaction_id is None and table_view.model() and table_view.selectionModel() and table_view.selectionModel().hasSelection():
+        idx = table_view.selectionModel().currentIndex()
+        selected_transaction_id = table_view.model().data(table_view.model().index(idx.row(), 0))
+    else:
+        selected_transaction_id = select_transaction_id
+
     # Set the proxy model to the table view
     table_view.setModel(proxy_model)
 
+    # Sort by date descending by default (most recent first)
+    table_view.sortByColumn(1, Qt.DescendingOrder)
+
+    # Hide the ID column
+    table_view.hideColumn(0)
+
+    # Restore selection if possible
+    if selected_transaction_id:
+        for row in range(proxy_model.rowCount()):
+            if proxy_model.data(proxy_model.index(row, 0)) == selected_transaction_id:
+                table_view.selectRow(row)
+                break
+
     # Set sensible column widths
-    # table_view.setColumnWidth(0, 60)  # ID
-    # table_view.setColumnWidth(1, 300)  # Description
-    # table_view.setColumnWidth(2, 120)  # Amount
-    # table_view.setColumnWidth(3, 120)  # Date
-    # table_view.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)  # Currency
     table_view.resizeColumnsToContents()
+
     # Sort by date descending by default (most recent first)
     table_view.sortByColumn(1, Qt.DescendingOrder)
 
@@ -719,414 +739,23 @@ def add_transaction(parent, table_view):
                 raise ValueError("At least one credit and one debit line are required")
 
             # Save transaction and lines
-            save_complete_transaction(
+            new_transaction_id = save_complete_transaction(
                 description_edit.text(),
                 currency_id,
                 credit_lines,
                 debit_lines
             )
 
-            # Reload transactions
-            load_transactions(table_view)
+            # Reload transactions and select the new one
+            load_transactions(table_view, select_transaction_id=new_transaction_id)
+
+            # Make sure the transaction line update connection is still active
+            if hasattr(table_view, '_on_transaction_selected'):
+                table_view.selectionModel().selectionChanged.connect(table_view._on_transaction_selected)
 
             QMessageBox.information(parent, "Success", "Transaction added successfully.")
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to add transaction: {e}")
-
-# def add_transaction_wizard(parent, table_view):
-#     """Add a new transaction using a wizard format"""
-#
-#     wizard = QWizard(parent)
-#     wizard.setWindowTitle("Add Transaction Wizard")
-#
-#     # Page 1: Transaction Details
-#     page1 = QWizardPage()
-#     page1.setTitle("Transaction Details")
-#
-#     layout1 = QVBoxLayout(page1)
-#     header_group = QGroupBox("Transaction Details")
-#     header_layout = QGridLayout(header_group)
-#
-#     # Add header fields: description, amount, date, currency
-#     header_layout.addWidget(QLabel("Description:"), 0, 0)
-#     description_edit = QLineEdit()
-#     header_layout.addWidget(description_edit, 0, 1, 1, 5)
-#
-#     header_layout.addWidget(QLabel("Total Amount:"), 1, 0)
-#     total_amount_edit = QLineEdit()
-#     total_amount_edit.setValidator(QDoubleValidator())
-#     header_layout.addWidget(total_amount_edit, 1, 1)
-#
-#     header_layout.addWidget(QLabel("Date:"), 1, 2)
-#     date_edit = QDateEdit(QDate.currentDate())
-#     date_edit.setCalendarPopup(True)
-#     header_layout.addWidget(date_edit, 1, 3)
-#
-#     header_layout.addWidget(QLabel("Currency:"), 1, 4)
-#     currency_combo = QComboBox()
-#     currencies = [curr[1] for curr in db.get_all_currencies()]
-#     currency_combo.addItems(currencies)
-#     default_index = currencies.index("EGP") if "EGP" in currencies else 0
-#     currency_combo.setCurrentIndex(default_index)
-#     header_layout.addWidget(currency_combo, 1, 5)
-#
-#     header_layout.setColumnStretch(0, 1)
-#     header_layout.setColumnStretch(1, 2)
-#     header_layout.setColumnStretch(2, 1)
-#     header_layout.setColumnStretch(3, 2)
-#     header_layout.setColumnStretch(4, 1)
-#     header_layout.setColumnStretch(5, 2)
-#
-#     layout1.addWidget(header_group)
-#     page1.setLayout(layout1)
-#
-#     # Register fields with the wizard
-#     page1.registerField("description*", description_edit)
-#     page1.registerField("total_amount*", total_amount_edit)
-#     page1.registerField("date*", date_edit)
-#     page1.registerField("currency*", currency_combo)
-#
-#     # Page 2: Credit Lines
-#     page2 = QWizardPage()
-#     page2.setTitle("Credit Lines")
-#
-#     layout2 = QVBoxLayout(page2)
-#     credit_group = QGroupBox("Credit Lines")
-#     credit_layout = QVBoxLayout(credit_group)
-#
-#     credit_lines_widget = QWidget()
-#     credit_lines_layout = QVBoxLayout(credit_lines_widget)
-#     credit_lines_layout.setContentsMargins(0, 0, 0, 0)
-#
-#     # Function to add a credit line row
-#     credit_line_widgets = []
-#
-#     def add_credit_line(amount=None):
-#         line_widget = QWidget()
-#         line_layout = QHBoxLayout(line_widget)
-#         line_layout.setContentsMargins(0, 0, 0, 0)
-#
-#         account_combo = QComboBox()
-#         accounts = [acc[1] for acc in db.get_all_accounts()]
-#         account_combo.addItems(accounts)
-#
-#         classification_combo = QComboBox()
-#         classification_combo.addItem("(None)")
-#
-#         amount_edit = QLineEdit()
-#         amount_edit.setValidator(QDoubleValidator())
-#         if amount:
-#             amount_edit.setText(str(amount))
-#
-#         line_date_edit = QDateEdit(wizard.field("date").toDate())  # Use transaction date
-#         line_date_edit.setCalendarPopup(True)
-#
-#         remove_btn = QPushButton("Remove")
-#
-#         line_layout.addWidget(account_combo, 3)
-#         line_layout.addWidget(classification_combo, 2)
-#         line_layout.addWidget(amount_edit, 2)
-#         line_layout.addWidget(line_date_edit, 2)
-#         line_layout.addWidget(remove_btn, 1)
-#
-#         credit_lines_layout.addWidget(line_widget)
-#
-#         # Add to tracking list
-#         line_data = {
-#             'widget': line_widget,
-#             'account': account_combo,
-#             'classification': classification_combo,
-#             'amount': amount_edit,
-#             'date': line_date_edit,
-#             'remove': remove_btn
-#         }
-#         credit_line_widgets.append(line_data)
-#
-#         # Connect signals
-#         amount_edit.textChanged.connect(update_remaining_amount)
-#         remove_btn.clicked.connect(lambda: remove_credit_line(line_data))
-#         account_combo.currentIndexChanged.connect(
-#             lambda index: update_classification_combo(classification_combo, accounts[index]))
-#
-#         return line_data
-#
-#     def remove_credit_line(line_data):
-#         credit_line_widgets.remove(line_data)
-#         line_data['widget'].deleteLater()
-#         update_remaining_amount()
-#
-#     # Function to update classification combo based on selected account
-#     def update_classification_combo(combo, account_name):
-#         combo.clear()
-#         combo.addItem("(None)")
-#         account_id = db.get_account_id(account_name)
-#         classifications = db.get_classifications_for_account(account_id)
-#         for classification in classifications:
-#             combo.addItem(classification[1])
-#
-#     credit_layout.addWidget(credit_lines_widget)
-#
-#     # Add button for credit lines
-#     add_credit_btn = QPushButton("Add Credit Line")
-#     add_credit_btn.clicked.connect(lambda: add_credit_line())
-#     credit_layout.addWidget(add_credit_btn)
-#
-#     layout2.addWidget(credit_group)
-#     page2.setLayout(layout2)
-#
-#     # Summary section
-#     summary_widget = QWidget()
-#     summary_layout = QHBoxLayout(summary_widget)
-#
-#     credit_total_label = QLabel("Credit Total: 0.00")
-#     summary_layout.addWidget(credit_total_label)
-#     layout2.addWidget(summary_widget)
-#
-#     # Function to update remaining amounts
-#     def update_remaining_amount():
-#         try:
-#             total_amount = wizard.field("total_amount").toDouble()[0]
-#
-#             # Calculate credit total
-#             credit_total = 0
-#             for line in credit_line_widgets:
-#                 try:
-#                     credit_total += float(line['amount'].text() or 0)
-#                 except ValueError:
-#                     pass
-#
-#             # Update display
-#             credit_total_label.setText(f"Credit Total: {credit_total:.2f}")
-#
-#             # Validation
-#             if credit_total > total_amount:
-#                 QMessageBox.warning(wizard, "Warning", "Credit total exceeds transaction amount.")
-#                 for line in credit_line_widgets:
-#                     line['amount'].setStyleSheet("QLineEdit { background-color: red; }")
-#             else:
-#                 for line in credit_line_widgets:
-#                     line['amount'].setStyleSheet("")  # reset style
-#
-#         except ValueError:
-#             pass
-#
-#     # Page 3: Debit Lines
-#     page3 = QWizardPage()
-#     page3.setTitle("Debit Lines")
-#
-#     layout3 = QVBoxLayout(page3)
-#     debit_group = QGroupBox("Debit Lines")
-#     debit_layout = QVBoxLayout(debit_group)
-#
-#     debit_lines_widget = QWidget()
-#     debit_lines_layout = QVBoxLayout(debit_lines_widget)
-#     debit_lines_layout.setContentsMargins(0, 0, 0, 0)
-#
-#     # Function to add a debit line row
-#     debit_line_widgets = []
-#
-#     def add_debit_line(amount=None):
-#         line_widget = QWidget()
-#         line_layout = QHBoxLayout(line_widget)
-#         line_layout.setContentsMargins(0, 0, 0, 0)
-#
-#         account_combo = QComboBox()
-#         accounts = [acc[1] for acc in db.get_all_accounts()]
-#         account_combo.addItems(accounts)
-#
-#         classification_combo = QComboBox()
-#         classification_combo.addItem("(None)")
-#
-#         amount_edit = QLineEdit()
-#         amount_edit.setValidator(QDoubleValidator())
-#         if amount:
-#             amount_edit.setText(str(amount))
-#
-#         line_date_edit = QDateEdit(wizard.field("date").toDate())
-#         line_date_edit.setCalendarPopup(True)
-#
-#         remove_btn = QPushButton("Remove")
-#
-#         line_layout.addWidget(account_combo, 3)
-#         line_layout.addWidget(classification_combo, 2)
-#         line_layout.addWidget(amount_edit, 2)
-#         line_layout.addWidget(line_date_edit, 2)
-#         line_layout.addWidget(remove_btn, 1)
-#
-#         debit_lines_layout.addWidget(line_widget)
-#
-#         # Add to tracking list
-#         line_data = {
-#             'widget': line_widget,
-#             'account': account_combo,
-#             'classification': classification_combo,
-#             'amount': amount_edit,
-#             'date': line_date_edit,
-#             'remove': remove_btn
-#         }
-#         debit_line_widgets.append(line_data)
-#
-#         # Connect signals
-#         amount_edit.textChanged.connect(update_remaining_amount_debit)
-#         remove_btn.clicked.connect(lambda: remove_debit_line(line_data))
-#         account_combo.currentIndexChanged.connect(
-#             lambda index: update_classification_combo(classification_combo, accounts[index]))
-#
-#         return line_data
-#
-#     def remove_debit_line(line_data):
-#         debit_line_widgets.remove(line_data)
-#         line_data['widget'].deleteLater()
-#         update_remaining_amount_debit()
-#
-#     debit_layout.addWidget(debit_lines_widget)
-#
-#     # Add button for debit lines
-#     add_debit_btn = QPushButton("Add Debit Line")
-#     add_debit_btn.clicked.connect(lambda: add_debit_line())
-#     debit_layout.addWidget(add_debit_btn)
-#
-#     layout3.addWidget(debit_group)
-#     page3.setLayout(layout3)
-#
-#     # Summary section
-#     summary_widget_debit = QWidget()
-#     summary_layout_debit = QHBoxLayout(summary_widget_debit)
-#
-#     debit_total_label = QLabel("Debit Total: 0.00")
-#     summary_layout_debit.addWidget(debit_total_label)
-#     layout3.addWidget(summary_widget_debit)
-#
-#     # Function to update remaining amounts (debit)
-#     def update_remaining_amount_debit():
-#         try:
-#             total_amount = wizard.field("total_amount").toDouble()[0]
-#
-#             # Calculate debit total
-#             debit_total = 0
-#             for line in debit_line_widgets:
-#                 try:
-#                     debit_total += float(line['amount'].text() or 0)
-#                 except ValueError:
-#                     pass
-#
-#             # Update display
-#             debit_total_label.setText(f"Debit Total: {debit_total:.2f}")
-#
-#             # Validation
-#             if debit_total > total_amount:
-#                 QMessageBox.warning(wizard, "Warning", "Debit total exceeds transaction amount.")
-#                 for line in debit_line_widgets:
-#                     line['amount'].setStyleSheet("QLineEdit { background-color: red; }")
-#             else:
-#                 for line in debit_line_widgets:
-#                     line['amount'].setStyleSheet("")
-#
-#         except ValueError:
-#             pass
-#
-#     # Add pages to wizard
-#     wizard.addPage(page1)
-#     wizard.addPage(page2)
-#     wizard.addPage(page3)
-#
-#     # Function to add default lines when page changes
-#     def on_current_id_changed(current_id):
-#         if current_id == 1:  # Page 2 (Credit Lines)
-#             total_amount = wizard.field("total_amount").toDouble()[0]
-#             add_credit_line(total_amount)
-#         elif current_id == 2:  # Page 3 (Debit Lines)
-#             total_amount = wizard.field("total_amount").toDouble()[0]
-#             add_debit_line(total_amount)
-#
-#     # Connect the signal
-#     wizard.currentIdChanged.connect(on_current_id_changed)
-#
-#     # Saving logic
-#     if wizard.exec_() == QWizard.Accepted:
-#         try:
-#             # Retrieve data from wizard
-#             description = wizard.field("description").toString()
-#             total_amount = wizard.field("total_amount").toDouble()[0]
-#             date = wizard.field("date").toDate().toString("yyyy-MM-dd")
-#             currency_id = db.get_currency_id(wizard.field("currency").currentText())
-#
-#             credit_lines = []
-#             for line in credit_line_widgets:
-#             # ... (Retrieve credit line data)
-#                 try:
-#                     amount = float(line['amount'].text() or 0)
-#                     if amount <= 0:
-#                         continue  # Skip lines with zero or negative amounts
-#
-#                     account_id = db.get_account_id(line['account'].currentText())
-#                     line_date = line['date'].date().toString("yyyy-MM-dd")
-#                     classification_name = line['classification'].currentText()
-#                     classification_id = None
-#                     if classification_name != "(None)":
-#                         classification = db.get_classification_by_name(classification_name)
-#                         if classification:
-#                             classification_id = classification[0]
-#
-#                     credit_lines.append({
-#                         'account_id': account_id,
-#                         'amount': amount,
-#                         'date': line_date,
-#                         'classification_id': classification_id
-#                     })
-#                 except ValueError:
-#                     pass
-#
-#             debit_lines = []
-#             for line in debit_line_widgets:
-#                 try:
-#                     amount = float(line['amount'].text() or 0)
-#                     if amount <= 0:
-#                         continue  # Skip lines with zero or negative amounts
-#
-#                     account_id = db.get_account_id(line['account'].currentText())
-#                     line_date = line['date'].date().toString("yyyy-MM-dd")
-#                     classification_name = line['classification'].currentText()
-#                     classification_id = None
-#                     if classification_name != "(None)":
-#                         classification = db.get_classification_by_name(classification_name)
-#                         if classification:
-#                             classification_id = classification[0]
-#
-#                     debit_lines.append({
-#                         'account_id': account_id,
-#                         'amount': amount,
-#                         'date': line_date,
-#                         'classification_id': classification_id
-#                     })
-#                 except ValueError:
-#                     pass
-#
-#             # Calculate totals for final check
-#             credit_total = sum(line['amount'] for line in credit_lines)
-#             debit_total = sum(line['amount'] for line in debit_lines)
-#
-#             # Verify balanced transaction
-#             if abs(credit_total - debit_total) > 0.01:  # Allow for minor floating point differences
-#                 raise ValueError(f"Transaction is not balanced. Credit: {credit_total:.2f}, Debit: {debit_total:.2f}")
-#
-#             if not credit_lines or not debit_lines:
-#                 raise ValueError("At least one credit and one debit line are required")
-#
-#             # Save transaction and lines
-#             save_complete_transaction(
-#                 description,
-#                 currency_id,
-#                 credit_lines,
-#                 debit_lines
-#             )
-#
-#             # Reload transactions
-#             load_transactions(table_view)
-#
-#             QMessageBox.information(parent, "Success", "Transaction added successfully.")
-#         except Exception as e:
-#             QMessageBox.critical(parent, "Error", f"Failed to add transaction: {e}")
 
 def add_transaction_wizard(parent, table_view):
     """Add a new transaction using a wizard format with 3 pages"""
@@ -1569,15 +1198,19 @@ def add_transaction_wizard(parent, table_view):
                 raise ValueError("At least one credit and one debit line are required")
 
             # Save transaction and lines
-            save_complete_transaction(
+            new_transaction_id = save_complete_transaction(
                 description,
                 currency_id,
                 credit_lines,
                 debit_lines
             )
 
-            # Reload transactions
-            load_transactions(table_view)
+            # Reload transactions and select the new one
+            load_transactions(table_view, select_transaction_id=new_transaction_id)
+
+            # Make sure the transaction line update connection is still active
+            if hasattr(table_view, '_on_transaction_selected'):
+                table_view.selectionModel().selectionChanged.connect(table_view._on_transaction_selected)
 
             QMessageBox.information(parent, "Success", "Transaction added successfully.")
 
@@ -1602,7 +1235,6 @@ def save_complete_transaction(description, currency_id, credit_lines, debit_line
                 credit=line['amount'],
                 date=line['date'],
                 classification_id=line['classification_id']
-
             )
 
         # Insert debit lines
@@ -1614,7 +1246,6 @@ def save_complete_transaction(description, currency_id, credit_lines, debit_line
                 credit=None,
                 date=line['date'],
                 classification_id=line['classification_id']
-
             )
 
         # Commit transaction
@@ -1666,7 +1297,6 @@ def edit_transaction(parent, table_view):
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to update transaction: {e}")
 
-
 def delete_transaction(parent, table_view):
     """Delete an existing transaction"""
     row_data = get_selected_row_data(table_view)
@@ -1696,7 +1326,6 @@ def delete_transaction(parent, table_view):
             QMessageBox.information(parent, "Success", "Transaction deleted successfully.")
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to delete transaction: {e}")
-
 
 def add_transaction_line(parent, transactions_table, lines_table, is_debit=True):
     """Add a new transaction line"""
@@ -1768,7 +1397,6 @@ def add_transaction_line(parent, transactions_table, lines_table, is_debit=True)
             QMessageBox.information(parent, "Success", "Transaction line added successfully.")
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to add transaction line: {e}")
-
 
 def edit_transaction_line(parent, lines_table):
     """Edit an existing transaction line"""
@@ -1854,7 +1482,6 @@ def edit_transaction_line(parent, lines_table):
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to update transaction line: {e}")
 
-
 def delete_transaction_line(parent, lines_table, transactions_table):
     """Delete an existing transaction line"""
     row_data = get_selected_row_data(lines_table)
@@ -1895,7 +1522,6 @@ def delete_transaction_line(parent, lines_table, transactions_table):
             QMessageBox.information(parent, "Success", "Transaction line deleted successfully.")
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to delete transaction line: {e}")
-
 
 def filter_transactions(parent, table_view):
     """Filter transactions by various criteria"""
