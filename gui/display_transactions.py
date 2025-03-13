@@ -506,12 +506,13 @@ def add_transaction(parent, table_view):
         credit_line_widgets.append(line_data)
 
         # Connect signals
-        amount_edit.textChanged.connect(update_remaining_amount)
+        amount_edit.textChanged.connect(update_credit_total)
         remove_btn.clicked.connect(lambda: remove_credit_line(line_data))
         account_combo.currentIndexChanged.connect(
             lambda index: update_classification_combo(classification_combo, accounts[index]))
-
+        amount_edit.textChanged.emit(amount_edit.text())
         return line_data
+
 
     def remove_credit_line(line_data):
         credit_line_widgets.remove(line_data)
@@ -579,11 +580,11 @@ def add_transaction(parent, table_view):
         debit_line_widgets.append(line_data)
 
         # Connect signals
-        amount_edit.textChanged.connect(update_remaining_amount)
+        amount_edit.textChanged.connect(update_debit_total)
         remove_btn.clicked.connect(lambda: remove_debit_line(line_data))
         account_combo.currentIndexChanged.connect(
             lambda index: update_classification_combo(classification_combo, accounts[index]))
-
+        amount_edit.textChanged.emit(amount_edit.text())
         return line_data
 
     # Function to update classification combo based on selected account
