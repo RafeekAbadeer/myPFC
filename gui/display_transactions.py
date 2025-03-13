@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import (QWizard, QWizardPage, QVBoxLayout, QTableView, QAct
                              QHeaderView, QWidget, QToolBar, QSplitter, QLabel, QHBoxLayout, QPushButton,
                              QDialog, QGroupBox, QGridLayout, QLineEdit, QDateEdit,QComboBox, QDialogButtonBox,
                              QScrollArea)
-from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon, QDoubleValidator
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon, QDoubleValidator, QPixmap
 from PyQt5.QtCore import Qt, QSortFilterProxyModel, QDate
 from gui.dialog_utils import show_entity_dialog
 from database import db
@@ -138,6 +138,11 @@ def display_transactions(content_frame, toolbar):
 
 def load_transactions(table_view, limit=20, filter_params=None, select_transaction_id=None):
     """Load transactions into the table view"""
+    # Store the on_transaction_selected function for reconnection
+    on_transaction_selected = None
+    if hasattr(table_view, '_on_transaction_selected'):
+        on_transaction_selected = table_view._on_transaction_selected
+
     model = QStandardItemModel()
     model.setHorizontalHeaderLabels(["ID", "Date", "Description", "Amount", "Currency"])
 
@@ -196,16 +201,25 @@ def load_transactions(table_view, limit=20, filter_params=None, select_transacti
     # Set the proxy model to the table view
     table_view.setModel(proxy_model)
 
+    # Reconnect the selection change signal
+    if on_transaction_selected:
+        table_view._on_transaction_selected = on_transaction_selected
+        table_view.selectionModel().selectionChanged.connect(on_transaction_selected)
+
+    # Resize columns
+    table_view.resizeColumnsToContents()
+
     # Sort by date descending by default (most recent first)
+    table_view.sortByColumn(0, Qt.DescendingOrder)
     table_view.sortByColumn(1, Qt.DescendingOrder)
 
     # Hide the ID column
-    table_view.hideColumn(0)
+    #table_view.hideColumn(0)
 
     # Restore selection if possible
     if selected_transaction_id:
         for row in range(proxy_model.rowCount()):
-            if proxy_model.data(proxy_model.index(row, 0)) == selected_transaction_id:
+            if str(proxy_model.data(proxy_model.index(row, 0))) == str(selected_transaction_id):
                 table_view.selectRow(row)
                 break
 
@@ -213,10 +227,11 @@ def load_transactions(table_view, limit=20, filter_params=None, select_transacti
     table_view.resizeColumnsToContents()
 
     # Sort by date descending by default (most recent first)
+    table_view.sortByColumn(0, Qt.DescendingOrder)
     table_view.sortByColumn(1, Qt.DescendingOrder)
 
     # Hide the ID column
-    table_view.hideColumn(0)
+    #table_view.hideColumn(0)
 
 def get_transactions_with_summary(limit=20, filter_params=None):
     """Get transactions from database with summary information"""
@@ -368,7 +383,7 @@ def load_transaction_lines(table_view, transaction_id, is_debit=True):
 
     table_view.resizeColumnsToContents()
     # Hide the ID column
-    table_view.hideColumn(0)
+    #table_view.hideColumn(0)
 
 def update_transaction_lines_display(transactions_table, lines_widget, debit_table, credit_table):
     """Update both transaction line tables when a transaction is selected"""
@@ -749,9 +764,9 @@ def add_transaction(parent, table_view):
             # Reload transactions and select the new one
             load_transactions(table_view, select_transaction_id=new_transaction_id)
 
-            # Make sure the transaction line update connection is still active
+            # Force transaction selection update
             if hasattr(table_view, '_on_transaction_selected'):
-                table_view.selectionModel().selectionChanged.connect(table_view._on_transaction_selected)
+                table_view._on_transaction_selected()
 
             QMessageBox.information(parent, "Success", "Transaction added successfully.")
         except Exception as e:
@@ -761,7 +776,16 @@ def add_transaction_wizard(parent, table_view):
     """Add a new transaction using a wizard format with 3 pages"""
 
     wizard = QWizard(parent)
+    wizard.setMinimumWidth(700)  # Adjust as needed
     wizard.setWindowTitle("Add Transaction Wizard")
+    # Set the wizard style to Modern - this should help with white backgrounds
+    wizard.setWizardStyle(QWizard.ModernStyle)
+    # Create a transparent pixmap for the banner/watermark
+    transparent_pixmap = QPixmap()
+    #transparent_pixmap.fill(Qt.transparent)
+    wizard.setPixmap(QWizard.WatermarkPixmap, transparent_pixmap)
+    wizard.setPixmap(QWizard.BannerPixmap, transparent_pixmap)
+    wizard.setPixmap(QWizard.LogoPixmap, transparent_pixmap)
 
     # Page 1: Transaction Basic Information
     page1 = QWizardPage()
@@ -769,6 +793,8 @@ def add_transaction_wizard(parent, table_view):
     page1.setSubTitle("Enter the basic transaction details")
 
     layout1 = QVBoxLayout(page1)
+
+    layout1.addStretch(1)
 
     # Description field
     desc_layout = QHBoxLayout()
@@ -800,6 +826,8 @@ def add_transaction_wizard(parent, table_view):
 
     layout1.addLayout(details_layout)
 
+    layout1.addStretch(1)  # Add at the end
+
     # Register fields with the wizard
     page1.registerField("description*", description_edit)
     page1.registerField("total_amount*", total_amount_edit)
@@ -809,7 +837,7 @@ def add_transaction_wizard(parent, table_view):
     # Page 2: Credit Account Selection
     page2 = QWizardPage()
     page2.setTitle("Credit Accounts")
-    page2.setSubTitle("Select accounts to credit (money goes to these accounts)")
+    page2.setSubTitle("Select accounts to credit (money goes from these accounts)")
 
     layout2 = QVBoxLayout(page2)
 
@@ -822,6 +850,7 @@ def add_transaction_wizard(parent, table_view):
     credit_scroll = QScrollArea()
     credit_scroll.setWidgetResizable(True)
     credit_scroll.setWidget(credit_lines_container)
+    #credit_scroll.setMinimumHeight(200)  # Adjust this value as needed
     layout2.addWidget(credit_scroll)
 
     # Add button and summary for credit lines
@@ -836,19 +865,21 @@ def add_transaction_wizard(parent, table_view):
     # Page 3: Debit Account Selection
     page3 = QWizardPage()
     page3.setTitle("Debit Accounts")
-    page3.setSubTitle("Select accounts to debit (money comes from these accounts)")
+    page3.setSubTitle("Select accounts to debit (money comes to these accounts)")
 
     layout3 = QVBoxLayout(page3)
 
     # Container for debit lines
     debit_lines_container = QWidget()
     debit_lines_layout = QVBoxLayout(debit_lines_container)
-    debit_lines_layout.setContentsMargins(0, 0, 0, 0)
+    debit_lines_layout.setContentsMargins(10, 10, 10, 10)
+
 
     # Scroll area for debit lines
     debit_scroll = QScrollArea()
     debit_scroll.setWidgetResizable(True)
     debit_scroll.setWidget(debit_lines_container)
+    #debit_scroll.setMinimumHeight(200)  # Adjust this value as needed
     layout3.addWidget(debit_scroll)
 
     # Add button and summary for debit lines
@@ -873,7 +904,7 @@ def add_transaction_wizard(parent, table_view):
     def add_credit_line(amount=None):
         line_widget = QWidget()
         line_layout = QHBoxLayout(line_widget)
-        line_layout.setContentsMargins(0, 0, 0, 0)
+        line_layout.setContentsMargins(10, 10, 10, 10)
 
         # Account selection
         account_combo = QComboBox()
@@ -935,7 +966,7 @@ def add_transaction_wizard(parent, table_view):
     def add_debit_line(amount=None):
         line_widget = QWidget()
         line_layout = QHBoxLayout(line_widget)
-        line_layout.setContentsMargins(0, 0, 0, 0)
+        line_layout.setContentsMargins(10, 10, 10, 10)
 
         # Account selection
         account_combo = QComboBox()
@@ -1208,12 +1239,11 @@ def add_transaction_wizard(parent, table_view):
             # Reload transactions and select the new one
             load_transactions(table_view, select_transaction_id=new_transaction_id)
 
-            # Make sure the transaction line update connection is still active
+            # Force transaction selection update
             if hasattr(table_view, '_on_transaction_selected'):
-                table_view.selectionModel().selectionChanged.connect(table_view._on_transaction_selected)
+                table_view._on_transaction_selected()
 
             QMessageBox.information(parent, "Success", "Transaction added successfully.")
-
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to add transaction: {str(e)}")
 

@@ -4,6 +4,234 @@
   color: #ffffff;
 }
 
+/* QWizard - clean styling */
+QWizard {
+  background-color: #3c3c3c;
+  color: #ffffff;
+}
+
+QWizardPage {
+  background-color: #3c3c3c;
+  color: #ffffff;
+}
+
+/* Handle dialog buttons specifically */
+QWizard QDialogButtonBox QPushButton {
+  background-color: #484848;
+  color: #ffffff;
+  border: 1px solid #444444;
+  border-radius: 3px;
+  padding: 4px 8px;
+  min-width: 80px;
+}
+
+QWizard QDialogButtonBox QPushButton:hover {
+  background-color: #575757;
+}
+
+QWizard QDialogButtonBox QPushButton:pressed {
+  background-color: #444444;
+}
+
+/* Banner and watermark area */
+QWizard #qt_wizard_watermark {
+  background-color: #2e2e2e;
+}
+
+/* Title and subtitle */
+QWizard #qt_wizard_titlelabel {
+  color: #ffffff;
+  font-size: 14pt;
+  font-weight: bold;
+}
+
+QWizard #qt_wizard_subtitlelabel {
+  color: #dddddd;
+  font-size: 11pt;
+}
+
+/* Fix specific widgets that need different styling */
+QWizard QLineEdit,
+QWizard QComboBox,
+QWizard QSpinBox,
+QWizard QDoubleSpinBox,
+QWizard QDateEdit {
+  background-color: #3c3c3c;
+  color: #ffffff;
+  border: 1px solid #444444;
+  border-radius: 3px;
+  padding: 4px;
+}
+
+QWizard QPushButton {
+  background-color: #484848;
+  color: #ffffff;
+  border: 1px solid #444444;
+  border-radius: 3px;
+  padding: 4px 12px;
+}
+
+QWizard QLabel {
+  background-color: transparent;
+}
+
+QWizard QDateEdit::drop-down, QWizard QComboBox::drop-down {
+  subcontrol-origin: padding;
+  subcontrol-position: top right;
+  width: 15px;
+  border-left: 1px solid #444444;
+}
+
+/* Fix QWizard back button (arrow) */
+QWizard #qt_wizard_backbutton {
+  background-color: #484848;
+  color: #ffffff;
+  border: 1px solid #444444;
+  border-radius: 3px;
+  padding: 4px;
+  icon-size: 16px;
+}
+
+QWizard #qt_wizard_backbutton:hover {
+  background-color: #575757;
+}
+
+QWizard #qt_wizard_backbutton:pressed {
+  background-color: #444444;
+}
+
+/* Improve scrollbars */
+QScrollBar:vertical {
+  background-color: #2e2e2e;
+  width: 12px;
+  margin: 12px 0px 12px 0px;
+  border: 1px solid #2e2e2e;
+  border-radius: 3px;
+}
+
+QScrollBar:horizontal {
+  background-color: #2e2e2e;
+  height: 12px;
+  margin: 0px 12px 0px 12px;
+  border: 1px solid #2e2e2e;
+  border-radius: 3px;
+}
+
+QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
+  background-color: #575757;
+  border-radius: 3px;
+  min-height: 20px;
+}
+
+QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {
+  background-color: #676767;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+  background-color: #353535;
+  border: 1px solid #444444;
+  border-radius: 3px;
+  height: 12px;
+  width: 12px;
+  subcontrol-origin: margin;
+}
+
+QScrollBar::add-line:vertical {
+  subcontrol-position: bottom;
+}
+
+QScrollBar::sub-line:vertical {
+  subcontrol-position: top;
+}
+
+QScrollBar::add-line:horizontal {
+  subcontrol-position: right;
+}
+
+QScrollBar::sub-line:horizontal {
+  subcontrol-position: left;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical,
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+  background-color: #2e2e2e;
+}
+
+/* Fix QDateEdit calendar popup */
+QCalendarWidget QToolButton {
+  background-color: #3c3c3c;
+  color: #ffffff;
+}
+
+QCalendarWidget QMenu {
+  background-color: #3c3c3c;
+  color: #ffffff;
+}
+
+QCalendarWidget QWidget {
+  background-color: #2e2e2e;
+  color: #ffffff;
+}
+
+QCalendarWidget QTableView {
+  background-color: #2e2e2e;
+  color: #ffffff;
+  border: none;
+}
+
+QCalendarWidget QAbstractItemView:enabled {
+  background-color: #2e2e2e;
+  color: #ffffff;
+}
+
+QCalendarWidget QAbstractItemView:disabled {
+  color: #666666;
+}
+
+/* Fix dialog backgrounds */
+QDialog {
+  background-color: #2e2e2e;
+}
+
+QDialog QWidget {
+  background-color: #2e2e2e;
+  color: #ffffff;
+}
+
+QDialog QFrame {
+  background-color: #2e2e2e;
+}
+
+QDialog QScrollArea {
+  background-color: transparent;
+}
+
+QScrollArea {
+  background-color: transparent;
+  border: None;
+}
+
+QScrollArea > QWidget > QWidget {
+  background-color: transparent;
+  border: None;
+}
+
+QGroupBox {
+  background-color: #2e2e2e;
+  border: 1px solid #444444;
+  border-radius: 5px;
+  margin-top: 1ex;
+  padding-top: 10px;
+}
+
+QGroupBox::title {
+  subcontrol-origin: margin;
+  subcontrol-position: top left;
+  padding: 0 3px;
+  background-color: #2e2e2e;
+}
+
 #text-color { color: #ffffff; }
 #selection-color { background-color: #575757; color: #ffffff; }
 #gridline-color { color: #444444; }
@@ -23,7 +251,6 @@ QMenuBar::item:selected {
 }
 
 /* Menu */
-
 QMenu::item:selected {
   background-color: #575757;
   color: #ffffff;
@@ -82,14 +309,6 @@ QHeaderView::vertical {
 }
 QTableCornerButton::section {
   background-color: #313131;
-}
-
-/* Wizard */
-QWizard {
-  background-color: #3c3c3c;
-}
-QWizardPage {
-  background-color: #3c3c3c;
 }
 
 /* Table View */
