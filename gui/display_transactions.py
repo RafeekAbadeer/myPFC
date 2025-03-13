@@ -1,9 +1,9 @@
 from PyQt5.QtWidgets import (QWizard, QWizardPage, QVBoxLayout, QTableView, QAction, QMessageBox,
                              QHeaderView, QWidget, QToolBar, QSplitter, QLabel, QHBoxLayout, QPushButton,
                              QDialog, QGroupBox, QGridLayout, QLineEdit, QDateEdit,QComboBox, QDialogButtonBox,
-                             QScrollArea)
+                             QScrollArea, QFrame)
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon, QDoubleValidator, QPixmap
-from PyQt5.QtCore import Qt, QSortFilterProxyModel, QDate
+from PyQt5.QtCore import Qt, QSortFilterProxyModel, QDate, QTimer, QObject, QEvent
 from gui.dialog_utils import show_entity_dialog
 from database import db
 import datetime
@@ -896,42 +896,215 @@ def add_transaction_wizard(parent, table_view):
     wizard.addPage(page2)
     wizard.addPage(page3)
 
+    # Add a custom button to the wizard
+    add_another_btn = QPushButton("Add Another Transaction")
+    wizard.setButton(QWizard.CustomButton1, add_another_btn)
+    wizard.setOption(QWizard.HaveCustomButton1, True)
+    wizard.setButtonText(QWizard.CustomButton1, "Add Another Transaction")
+
+    # Only show the button on the last page
+    def update_custom_button(page_id):
+        # Show the custom button only on the last page (index 2)
+        wizard.setOption(QWizard.HaveCustomButton1, page_id == 2)
+
+    wizard.currentIdChanged.connect(update_custom_button)
+
+    # Connect the button to start a new transaction wizard
+    def start_new_transaction():
+        # This will be called when CustomButton1 is clicked
+        # We need to accept the current wizard first
+        wizard.accept()
+        # Then start a new one
+        QTimer.singleShot(100, lambda: add_transaction_wizard(parent, table_view))
+
+    wizard.customButtonClicked.connect(start_new_transaction)
+
     # Lists to track line widgets
     credit_line_widgets = []
     debit_line_widgets = []
 
+    # At the end of your wizard setup:
+    def on_current_id_changed(current_id):
+        if current_id == 0:  # First page
+            description_edit.setFocus()
+        elif current_id == 1 and credit_line_widgets:  # Credit page
+            credit_line_widgets[0]['account'].setFocus()
+        elif current_id == 2 and debit_line_widgets:  # Debit page
+            debit_line_widgets[0]['account'].setFocus()
+
+    wizard.currentIdChanged.connect(on_current_id_changed)
+
+    # Set tab order for first page
+    wizard.setTabOrder(description_edit, total_amount_edit)
+    wizard.setTabOrder(total_amount_edit, date_edit)
+    wizard.setTabOrder(date_edit, currency_combo)
+
+    # Custom key event handler for pages
+    def handle_key_press(obj, event):
+        if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
+            # If on the last page, handle differently
+            if wizard.currentId() == 2:  # Assuming 3 pages (0, 1, 2)
+                if event.modifiers() & Qt.ControlModifier:
+                    # Ctrl+Enter to finish and add new transaction
+                    wizard.button(QWizard.FinishButton).click()
+                    add_transaction_wizard(parent, table_view)
+                else:
+                    # Just finish
+                    wizard.button(QWizard.FinishButton).click()
+            else:
+                # On other pages, proceed to next
+                wizard.button(QWizard.NextButton).click()
+            return True
+        return False
+
+    # Install event filter on all input widgets
+    def install_event_filter(widget, filter_func):
+        class KeyPressFilter(QObject):
+            def eventFilter(self, obj, event):
+                if event.type() == QEvent.KeyPress:
+                    return filter_func(obj, event)
+                return False
+
+        filter_obj = KeyPressFilter(widget)
+        widget.installEventFilter(filter_obj)
+        return filter_obj
+
+    # Apply to all editable widgets
+    key_filters = []
+    key_filters.append(install_event_filter(description_edit, handle_key_press))
+    key_filters.append(install_event_filter(total_amount_edit, handle_key_press))
+    key_filters.append(install_event_filter(date_edit, handle_key_press))
+    key_filters.append(install_event_filter(currency_combo, handle_key_press))
+
+    # Function to update credit total
+    def update_credit_total():
+        try:
+            total_transaction_amount = float(total_amount_edit.text() or 0)
+            credit_total = 0
+
+            for line in credit_line_widgets:
+                try:
+                    credit_total += float(line['amount'].text() or 0)
+                except (ValueError, TypeError):
+                    pass
+
+            # Update the label with correct formatting
+            credit_total_label.setText(f"Credit Total: {credit_total:.2f}")
+
+            # Calculate remaining amount needed
+            remaining = total_transaction_amount - credit_total
+
+            # Highlight if exceeds total amount
+            if credit_total > total_transaction_amount:
+                credit_total_label.setStyleSheet("QLabel { color: red; font-weight: bold; }")
+                for line in credit_line_widgets:
+                    line['amount'].setStyleSheet("QLineEdit { background-color: #FFE0E0; }")
+            else:
+                credit_total_label.setStyleSheet("")
+                for line in credit_line_widgets:
+                    line['amount'].setStyleSheet("")
+
+            # Return the remaining amount for new lines
+            return remaining
+
+        except (ValueError, TypeError):
+            return 0
+
+    def update_debit_total():
+        try:
+            total_transaction_amount = float(total_amount_edit.text() or 0)
+            debit_total = 0
+
+            for line in debit_line_widgets:
+                try:
+                    debit_total += float(line['amount'].text() or 0)
+                except (ValueError, TypeError):
+                    pass
+
+            # Update the label with correct formatting
+            debit_total_label.setText(f"Debit Total: {debit_total:.2f}")
+
+            # Calculate remaining amount needed
+            remaining = total_transaction_amount - debit_total
+
+            # Highlight if exceeds total amount
+            if debit_total > total_transaction_amount:
+                debit_total_label.setStyleSheet("QLabel { color: red; font-weight: bold; }")
+                for line in debit_line_widgets:
+                    line['amount'].setStyleSheet("QLineEdit { background-color: #FFE0E0; }")
+            else:
+                debit_total_label.setStyleSheet("")
+                for line in debit_line_widgets:
+                    line['amount'].setStyleSheet("")
+
+            # Return the remaining amount for new lines
+            return remaining
+
+        except (ValueError, TypeError):
+            return 0
+
     # Function to add a credit line
     def add_credit_line(amount=None):
         line_widget = QWidget()
-        line_layout = QHBoxLayout(line_widget)
-        line_layout.setContentsMargins(10, 10, 10, 10)
+        line_layout = QVBoxLayout(line_widget)
+        line_layout.setContentsMargins(5, 5, 5, 5)
+
+        # Top row with account and classification
+        top_row = QHBoxLayout()
+
+        # Account label and selection
+        account_label = QLabel("Account:")
+        top_row.addWidget(account_label, 1)
 
         # Account selection
         account_combo = QComboBox()
         accounts = [acc[1] for acc in db.get_all_accounts()]
         account_combo.addItems(accounts)
-        line_layout.addWidget(account_combo, 3)
+        top_row.addWidget(account_combo, 3)
 
         # Classification selection
+        class_label = QLabel("Classification:")
+        top_row.addWidget(class_label, 1)
+
         classification_combo = QComboBox()
         classification_combo.addItem("(None)")
-        line_layout.addWidget(classification_combo, 2)
+        top_row.addWidget(classification_combo, 3)
+
+        line_layout.addLayout(top_row)
+
+        # Bottom row with amount and date
+        bottom_row = QHBoxLayout()
 
         # Amount field
+        amount_label = QLabel("Amount:")
+        bottom_row.addWidget(amount_label, 1)
         amount_edit = QLineEdit()
         amount_edit.setValidator(QDoubleValidator())
         if amount:
             amount_edit.setText(str(amount))
-        line_layout.addWidget(amount_edit, 2)
+        bottom_row.addWidget(amount_edit, 3)
 
         # Date field
+        date_label = QLabel("Date:")
+        bottom_row.addWidget(date_label, 1)
+
         line_date_edit = QDateEdit(date_edit.date())
         line_date_edit.setCalendarPopup(True)
-        line_layout.addWidget(line_date_edit, 2)
+        bottom_row.addWidget(line_date_edit, 3)
 
         # Remove button
         remove_btn = QPushButton("Remove")
-        line_layout.addWidget(remove_btn, 1)
+        if len(credit_line_widgets) == 0:  # First line has no remove button
+            remove_btn.setVisible(False)
+        bottom_row.addWidget(remove_btn, 1)
+
+        line_layout.addLayout(bottom_row)
+
+        # Add a separator line
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        line_layout.addWidget(separator)
 
         credit_lines_layout.addWidget(line_widget)
 
@@ -965,35 +1138,66 @@ def add_transaction_wizard(parent, table_view):
     # Function to add a debit line
     def add_debit_line(amount=None):
         line_widget = QWidget()
-        line_layout = QHBoxLayout(line_widget)
-        line_layout.setContentsMargins(10, 10, 10, 10)
+        line_layout = QVBoxLayout(line_widget)
+        line_layout.setContentsMargins(5, 5, 5, 5)
+
+        # Top row with account and classification
+        top_row = QHBoxLayout()
+
+        # Account label and selection
+        account_label = QLabel("Account:")
+        top_row.addWidget(account_label, 1)
 
         # Account selection
         account_combo = QComboBox()
         accounts = [acc[1] for acc in db.get_all_accounts()]
         account_combo.addItems(accounts)
-        line_layout.addWidget(account_combo, 3)
+        top_row.addWidget(account_combo, 3)
 
         # Classification selection
+        class_label = QLabel("Classification:")
+        top_row.addWidget(class_label, 1)
+
         classification_combo = QComboBox()
         classification_combo.addItem("(None)")
-        line_layout.addWidget(classification_combo, 2)
+        top_row.addWidget(classification_combo, 3)
+
+        line_layout.addLayout(top_row)
+
+        # Bottom row with amount and date
+        bottom_row = QHBoxLayout()
 
         # Amount field
+        amount_label = QLabel("Amount:")
+        bottom_row.addWidget(amount_label, 1)
+
         amount_edit = QLineEdit()
         amount_edit.setValidator(QDoubleValidator())
         if amount:
             amount_edit.setText(str(amount))
-        line_layout.addWidget(amount_edit, 2)
+        bottom_row.addWidget(amount_edit, 3)
 
         # Date field
+        date_label = QLabel("Date:")
+        bottom_row.addWidget(date_label, 1)
+
         line_date_edit = QDateEdit(date_edit.date())
         line_date_edit.setCalendarPopup(True)
-        line_layout.addWidget(line_date_edit, 2)
+        bottom_row.addWidget(line_date_edit, 3)
 
         # Remove button
         remove_btn = QPushButton("Remove")
-        line_layout.addWidget(remove_btn, 1)
+        if len(debit_line_widgets) == 0:  # First line has no remove button
+            remove_btn.setVisible(False)
+        bottom_row.addWidget(remove_btn, 1)
+
+        line_layout.addLayout(bottom_row)
+
+        # Add a separator line
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        line_layout.addWidget(separator)
 
         debit_lines_layout.addWidget(line_widget)
 
@@ -1086,8 +1290,8 @@ def add_transaction_wizard(parent, table_view):
             pass
 
     # Connect events for adding lines
-    add_credit_btn.clicked.connect(lambda: add_credit_line())
-    add_debit_btn.clicked.connect(lambda: add_debit_line())
+    add_credit_btn.clicked.connect(lambda: add_credit_line(update_credit_total()))
+    add_debit_btn.clicked.connect(lambda: add_debit_line(update_debit_total()))
 
     # Update date fields when main date changes
     def update_line_dates():
