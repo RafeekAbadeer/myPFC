@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QWizard, QWizardPage, QVBoxLayout, QTableView, QAction, QMessageBox,
                              QHeaderView, QWidget, QToolBar, QSplitter, QLabel, QHBoxLayout, QPushButton,
                              QDialog, QGroupBox, QGridLayout, QLineEdit, QDateEdit,QComboBox, QDialogButtonBox,
-                             QScrollArea, QFrame)
+                             QScrollArea, QFrame, QCompleter)
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon, QDoubleValidator, QPixmap
 from PyQt5.QtCore import Qt, QSortFilterProxyModel, QDate, QTimer, QObject, QEvent
 from gui.dialog_utils import show_entity_dialog
@@ -24,6 +24,50 @@ def get_selected_row_data(table_view):
         row_data[col_name] = value
 
     return row_data
+
+# Add this class for handling focus events
+class FocusEventFilter(QObject):
+    def __init__(self, callback):
+        super().__init__()
+        self.callback = callback
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.FocusIn:
+            self.callback()
+        return False
+
+def get_recent_descriptions(limit=100):
+    """Get the most recent unique transaction descriptions, limited to prevent performance issues"""
+    cursor = db.conn.cursor()
+    cursor.execute("""
+        SELECT DISTINCT description FROM transactions 
+        ORDER BY id DESC 
+        LIMIT ?
+    """, (limit,))
+    return [row[0] for row in cursor.fetchall()]
+
+def make_combo_editable(combo, items):
+    combo.setEditable(True)
+    combo.setInsertPolicy(QComboBox.NoInsert)
+
+    # Create a completer
+    completer = QCompleter(items, combo)
+    completer.setCaseSensitivity(Qt.CaseInsensitive)
+    completer.setFilterMode(Qt.MatchContains)
+    combo.setCompleter(completer)
+
+    # Clear the text when focused to provide better UX
+    def on_focus():
+        # Save current text
+        current_text = combo.currentText()
+        # Clear the line edit
+        combo.lineEdit().clear()
+        # Store the previous text for later use if needed
+        combo.lineEdit().setProperty("previous_text", current_text)
+
+    combo.lineEdit().installEventFilter(FocusEventFilter(on_focus))
+
+    return combo
 
 def display_transactions(content_frame, toolbar):
     # Clear existing layout
@@ -778,6 +822,12 @@ def update_transaction_lines_display(transactions_table, lines_widget, debit_tab
 #         except Exception as e:
 #             QMessageBox.critical(parent, "Error", f"Failed to add transaction: {e}")
 
+# Function to get all existing transaction descriptions
+def get_all_descriptions():
+    cursor = db.conn.cursor()
+    cursor.execute("SELECT DISTINCT description FROM transactions")
+    return [row[0] for row in cursor.fetchall()]
+
 def add_transaction_wizard(parent, table_view):
     """Add a new transaction using a wizard format with 3 pages"""
 
@@ -806,6 +856,10 @@ def add_transaction_wizard(parent, table_view):
     desc_layout = QHBoxLayout()
     desc_layout.addWidget(QLabel("Description:"))
     description_edit = QLineEdit()
+    description_completer = QCompleter(get_recent_descriptions())
+    description_completer.setCaseSensitivity(Qt.CaseInsensitive)
+    description_completer.setFilterMode(Qt.MatchContains)  # This allows matching anywhere in the text
+    description_edit.setCompleter(description_completer)
     desc_layout.addWidget(description_edit)
     layout1.addLayout(desc_layout)
 
@@ -940,17 +994,22 @@ def add_transaction_wizard(parent, table_view):
                 total_amount = float(total_amount_edit.text() or 0)
                 if total_amount > 0:
                     line_data = add_credit_line(total_amount)
+                    # Make the account combo box have immediate focus
+                    line_data['account'].setFocus()
                     line_data['amount'].textChanged.emit(line_data['amount'].text())  # Trigger update
             except (ValueError, TypeError):
-                add_credit_line()
+                line_data = add_credit_line()
+                line_data['account'].setFocus()
         elif current_id == 2 and not debit_line_widgets:  # Debit page
             try:
                 total_amount = float(total_amount_edit.text() or 0)
                 if total_amount > 0:
                     line_data = add_debit_line(total_amount)
+                    line_data['account'].setFocus()
                     line_data['amount'].textChanged.emit(line_data['amount'].text())  # Trigger update
             except (ValueError, TypeError):
-                add_debit_line()
+                line_data = add_debit_line()
+                line_data['account'].setFocus()
 
     # Function to update transaction total labels when main amount changes
     def update_transaction_totals():
@@ -1095,6 +1154,7 @@ def add_transaction_wizard(parent, table_view):
         account_combo = QComboBox()
         accounts = [acc[1] for acc in db.get_all_accounts()]
         account_combo.addItems(accounts)
+        make_combo_editable(account_combo, accounts)
         top_row.addWidget(account_combo, 3)
 
         # Classification selection
@@ -1188,6 +1248,7 @@ def add_transaction_wizard(parent, table_view):
         account_combo = QComboBox()
         accounts = [acc[1] for acc in db.get_all_accounts()]
         account_combo.addItems(accounts)
+        make_combo_editable(account_combo, accounts)
         top_row.addWidget(account_combo, 3)
 
         # Classification selection
@@ -1268,11 +1329,21 @@ def add_transaction_wizard(parent, table_view):
     # Function to update classification options based on account
     def update_classification_combo(combo, account_name):
         combo.clear()
-        combo.addItem("(None)")
         account_id = db.get_account_id(account_name)
         classifications = db.get_classifications_for_account(account_id)
-        for classification in classifications:
-            combo.addItem(classification[1])
+
+        # Only show "(None)" when there are NO classifications available
+        if not classifications:
+            combo.addItem("(None)")
+        else:
+            # Otherwise just show the actual classifications
+            for classification in classifications:
+                combo.addItem(classification[1])
+        # Make the combo editable with autocompletion if there are classifications
+        if classifications:
+            items = [c[1] for c in classifications]
+            make_combo_editable(combo, items)
+
 
     # Function to update credit total
     def update_credit_total():
