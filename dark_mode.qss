@@ -4,6 +4,9 @@
   color: #ffffff;
 }
 
+
+
+
 /* QWizard - clean styling */
 QWizard {
   background-color: #3c3c3c;
@@ -14,6 +17,12 @@ QWizardPage {
   background-color: #3c3c3c;
   color: #ffffff;
 }
+
+QWizardPage QWidget {
+  background-color: #3c3c3c;
+  color: #ffffff;
+}
+
 
 /* Handle dialog buttons specifically */
 QWizard QDialogButtonBox QPushButton {
@@ -43,11 +52,13 @@ QWizard #qt_wizard_titlelabel {
   color: #ffffff;
   font-size: 14pt;
   font-weight: bold;
+  background-color: transparent;
 }
 
 QWizard #qt_wizard_subtitlelabel {
   color: #dddddd;
   font-size: 11pt;
+  background-color: transparent;
 }
 
 /* Fix specific widgets that need different styling */
@@ -192,6 +203,7 @@ QCalendarWidget QAbstractItemView:disabled {
 /* Fix dialog backgrounds */
 QDialog {
   background-color: #2e2e2e;
+  color: #ffffff;
 }
 
 QDialog QWidget {
@@ -209,17 +221,17 @@ QDialog QScrollArea {
 
 QScrollArea {
   background-color: transparent;
-  border: None;
+  border: 1px solid #555555;
 }
 
 QScrollArea > QWidget > QWidget {
   background-color: transparent;
-  border: None;
+  border: 1px solid #555555;
 }
 
 QGroupBox {
   background-color: #2e2e2e;
-  border: 1px solid #444444;
+  border: 1px solid #555555;
   border-radius: 5px;
   margin-top: 1ex;
   padding-top: 10px;
@@ -230,6 +242,7 @@ QGroupBox::title {
   subcontrol-position: top left;
   padding: 0 3px;
   background-color: #2e2e2e;
+  color: #ffffff;
 }
 
 #text-color { color: #ffffff; }
@@ -385,4 +398,32 @@ QToolTip {
   background-color: #575757;
   color: #ffffff;
   border: 1px solid #444444;
+}
+
+/* Make separator lines more visible */
+QFrame[frameShape="4"] {  /* 4 is the enum value for HLine */
+  background-color: #555555;
+  border: none;
+  max-height: 1px;
+}
+
+QMessageBox QLabel {
+  color: #ffffff;
+}
+
+QMessageBox QPushButton {
+  background-color: #484848;
+  color: #ffffff;
+  border: 1px solid #444444;
+  border-radius: 3px;
+  padding: 6px 12px;
+  min-width: 80px;
+}
+
+QMessageBox QPushButton:hover {
+  background-color: #575757;
+}
+
+QMessageBox QPushButton:pressed {
+  background-color: #444444;
 }
