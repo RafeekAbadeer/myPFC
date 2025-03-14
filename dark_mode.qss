@@ -269,6 +269,7 @@ QMenu::item:selected {
   color: #ffffff;
 }
 
+
 /* Tool Bar */
 QToolBar {
   border: none;
@@ -279,30 +280,40 @@ QToolBar QToolButton {
   color: #ffffff;
   border: 1px solid transparent;
   padding: 3px;
+  qproperty-iconSize: 20px;
+  padding-left: 5px;
+  padding-right: 5px;
+  spacing: 6px; /* This controls the space between icon and text */
 }
 
 QToolBar QToolButton:hover {
   background-color: #575757;
   color: #ffffff;
   border: 1px solid #ffffff;
-  border-left-color: #666666; /* Lighter left border */
-  border-top-color: #666666;  /* Lighter top border */
-  border-right-color: #444444; /* Darker right border */
-  border-bottom-color: #444444; /* Darker bottom border */
+  border-left-color: #666666;
+  border-top-color: #666666;
+  border-right-color: #444444;
+  border-bottom-color: #444444;
   border-radius: 3px;
   padding: 2px;
+  padding-left: 5px;
+  padding-right: 5px;
+  spacing: 6px;
 }
 
 QToolBar QToolButton:pressed {
   background-color: #444444;
   color: #ffffff;
   border: 1px solid #ffffff;
-  border-left-color: #333333; /* Darker left border */
-  border-top-color: #333333;  /* Darker top border */
-  border-right-color: #666666; /* Lighter right border */
-  border-bottom-color: #666666; /* Lighter bottom border */
+  border-left-color: #333333;
+  border-top-color: #333333;
+  border-right-color: #666666;
+  border-bottom-color: #666666;
   border-radius: 3px;
   padding: 2px;
+  padding-left: 5px;
+  padding-right: 5px;
+  spacing: 6px;
 }
 
 /* Tree View */
@@ -313,6 +324,31 @@ QTreeView {
   gridline-color: #444444;
   border: 1px solid #2e2e2e;
 }
+QTreeView::item {
+  border: none;
+  padding: 3px;
+  min-height: 28px;
+}
+
+QTreeView::item:selected {
+  background-color: #575757;
+  color: #ffffff;
+}
+
+QTreeView::item:selected:!active {
+  background-color: #505050;
+  color: #ffffff;
+}
+
+/* Hover styling - only when not selected */
+QTreeView::item:hover:!selected {
+  background-color: #505050; /* Force this color */
+}
+
+QTreeView::item:hover {
+  background-color: #4a4a4a;  /* Lighter on hover for better user feedback */
+}
+
 QHeaderView::section {
   background-color: #313131;
   border: none;
@@ -426,4 +462,33 @@ QMessageBox QPushButton:hover {
 
 QMessageBox QPushButton:pressed {
   background-color: #444444;
+}
+
+/* Try to style title bar and window frame */
+QMainWindow {
+  background-color: #2e2e2e;
+  color: #ffffff;
+}
+
+QMainWindow::title {
+  background-color: #2e2e2e;
+  color: #ffffff;
+}
+
+/* Dialog windows title bar */
+QDialog {
+  background-color: #2e2e2e;
+  color: #ffffff;
+}
+
+/* These pseudo-elements might work on some platforms */
+QWidget::window-frame {
+  background-color: #2e2e2e;
+  color: #ffffff;
+}
+
+/* For Windows 10/11 title bar (might work on some Qt versions) */
+QMainWindow::title:window {
+  background-color: #2e2e2e;
+  color: #ffffff;
 }

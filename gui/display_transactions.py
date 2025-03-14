@@ -103,6 +103,9 @@ def display_transactions(content_frame, toolbar):
     debit_table.setSortingEnabled(True)
     credit_table.setSortingEnabled(True)
 
+    #toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+    toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)
+
     # Add toolbar buttons for main transactions
     add_action = QAction(QIcon('icons/add.png'), "Add", toolbar)
     edit_action = QAction(QIcon('icons/edit.png'), "Edit", toolbar)

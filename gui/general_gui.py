@@ -148,8 +148,9 @@ class Application(QMainWindow):
         settings_item.appendRow(QStandardItem("Credit Cards"))
         settings_item.appendRow(QStandardItem("Currencies"))
         settings_item.appendRow(QStandardItem("Classifications"))
+        #self.tree.setAlternatingRowColors(True)
         self.tree.setModel(model)
-        self.tree.expandAll()
+        #self.tree.expandAll()
 
     def tree_selection_event(self, selected, deselected):
         try:
