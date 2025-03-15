@@ -492,3 +492,21 @@ QMainWindow::title:window {
   background-color: #2e2e2e;
   color: #ffffff;
 }
+
+QComboBox:editable {
+    background-color: #3c3c3c;
+    color: #ffffff;
+    border: 1px solid #444444;
+    border-radius: 3px;
+    padding: 4px;
+}
+
+QComboBox QLineEdit {
+    background-color: transparent;
+    color: #ffffff;
+    border: none;
+    padding: 0px;
+    margin: 0px;
+    selection-background-color: #575757;
+    selection-color: #ffffff;
+}
