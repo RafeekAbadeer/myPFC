@@ -510,3 +510,19 @@ QComboBox QLineEdit {
     selection-background-color: #575757;
     selection-color: #ffffff;
 }
+
+QComboBox QAbstractItemView {
+    background-color: #3c3c3c;
+    color: #ffffff;
+    border: 1px solid #555555;
+    selection-background-color: #575757;
+    selection-color: #ffffff;
+    outline: 0px;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 15px;
+    border-left: 1px solid #444444;
+}

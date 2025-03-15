@@ -9,6 +9,8 @@ from database import db
 import datetime
 
 
+
+
 def get_selected_row_data(table_view):
     """Helper function to get data from selected row"""
     if not table_view.selectionModel() or not table_view.selectionModel().hasSelection():
@@ -46,6 +48,7 @@ def get_recent_descriptions(limit=100):
     """, (limit,))
     return [row[0] for row in cursor.fetchall()]
 
+
 def make_combo_editable(combo, items):
     combo.setEditable(True)
     combo.setInsertPolicy(QComboBox.NoInsert)
@@ -56,16 +59,25 @@ def make_combo_editable(combo, items):
     completer.setFilterMode(Qt.MatchContains)
     combo.setCompleter(completer)
 
-
     # Set empty text initially instead of showing first item
     combo.setCurrentText("")
 
-    # Clear the text when focused to provide better UX
-    def on_focus():
-        # Clear the line edit
-        combo.lineEdit().clear()
+    # Show dropdown and handle focus behavior
+    class ComboFocusEventFilter(QObject):
+        def eventFilter(self, obj, event):
+            if event.type() == QEvent.FocusIn:
+                # Show all dropdown options when focused
+                QTimer.singleShot(10, combo.showPopup)
+                # Clear the text to ensure user can see all options
+                combo.lineEdit().clear()
+            return False
 
-    combo.lineEdit().installEventFilter(FocusEventFilter(on_focus))
+    # Install the event filter
+    focus_filter = ComboFocusEventFilter()
+    combo.lineEdit().installEventFilter(focus_filter)
+
+    # Store the filter as a property to prevent garbage collection
+    combo.setProperty("focus_filter", focus_filter)
 
     return combo
 
@@ -845,9 +857,41 @@ def add_transaction_wizard(parent, table_view):
         # Connect signals
         amount_edit.textChanged.connect(update_credit_total)
         remove_btn.clicked.connect(lambda: remove_credit_line(line_data))
-        account_combo.currentIndexChanged.connect(
-            lambda index: update_classification_combo(classification_combo, accounts[index])
-        )
+
+        # Update classification and move focus when account is selected
+        def on_account_selected(index):
+            if index >= 0 and index < len(accounts):  # Validate index
+                update_classification_combo(classification_combo, accounts[index])
+                classification_combo.setFocus()
+
+        account_combo.currentIndexChanged.connect(on_account_selected)
+
+        # Handle Enter key press in account combobox
+        class AccountKeyPressFilter(QObject):
+            def __init__(self, combo, accounts, classification_combo):
+                super().__init__()
+                self.combo = combo
+                self.accounts = accounts
+                self.classification_combo = classification_combo
+
+            def eventFilter(self, obj, event):
+                if event.type() == QEvent.KeyPress:
+                    if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
+                        current_text = self.combo.currentText()
+
+                        # Validate account exists
+                        if current_text in self.accounts:
+                            update_classification_combo(self.classification_combo, current_text)
+                            self.classification_combo.setFocus()
+                            return True
+                return False
+
+        account_filter = AccountKeyPressFilter(account_combo, accounts, classification_combo)
+        if account_combo.lineEdit():
+            account_combo.lineEdit().installEventFilter(account_filter)
+
+        # Store the filter to prevent garbage collection
+        line_data['account_filter'] = account_filter
 
         return line_data
 
@@ -940,9 +984,41 @@ def add_transaction_wizard(parent, table_view):
         # Connect signals
         amount_edit.textChanged.connect(update_debit_total)
         remove_btn.clicked.connect(lambda: remove_debit_line(line_data))
-        account_combo.currentIndexChanged.connect(
-            lambda index: update_classification_combo(classification_combo, accounts[index])
-        )
+
+        # Update classification and move focus when account is selected
+        def on_account_selected(index):
+            if index >= 0 and index < len(accounts):  # Validate index
+                update_classification_combo(classification_combo, accounts[index])
+                classification_combo.setFocus()
+
+        account_combo.currentIndexChanged.connect(on_account_selected)
+
+        # Handle Enter key press in account combobox
+        class AccountKeyPressFilter(QObject):
+            def __init__(self, combo, accounts, classification_combo):
+                super().__init__()
+                self.combo = combo
+                self.accounts = accounts
+                self.classification_combo = classification_combo
+
+            def eventFilter(self, obj, event):
+                if event.type() == QEvent.KeyPress:
+                    if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
+                        current_text = self.combo.currentText()
+
+                        # Validate account exists
+                        if current_text in self.accounts:
+                            update_classification_combo(self.classification_combo, current_text)
+                            self.classification_combo.setFocus()
+                            return True
+                return False
+
+        account_filter = AccountKeyPressFilter(account_combo, accounts, classification_combo)
+        if account_combo.lineEdit():
+            account_combo.lineEdit().installEventFilter(account_filter)
+
+        # Store the filter to prevent garbage collection
+        line_data['account_filter'] = account_filter
 
         return line_data
 
@@ -954,6 +1030,33 @@ def add_transaction_wizard(parent, table_view):
             update_debit_total()
 
     # Function to update classification options based on account
+    # def update_classification_combo(combo, account_name):
+    #     combo.clear()
+    #     account_id = db.get_account_id(account_name)
+    #     classifications = db.get_classifications_for_account(account_id)
+    #
+    #     # Reset to non-editable first
+    #     combo.setEditable(False)
+    #
+    #     # Only show "(None)" when there are NO classifications available
+    #     if not classifications:
+    #         combo.addItem("(None)")
+    #     else:
+    #         # Otherwise just show the actual classifications
+    #         for classification in classifications:
+    #             combo.addItem(classification[1])
+    #
+    #     # Make the combo editable with autocompletion if there are classifications
+    #     if classifications:
+    #         items = [c[1] for c in classifications]
+    #         make_combo_editable(combo, items)
+    #
+    #         # Show dropdown immediately
+    #         combo.showPopup()
+
+
+    # Function to update credit total
+
     def update_classification_combo(combo, account_name):
         combo.clear()
         account_id = db.get_account_id(account_name)
@@ -987,6 +1090,11 @@ def add_transaction_wizard(parent, table_view):
             # Set empty text initially instead of showing first item
             combo.setCurrentText("")
 
+            # Force style update
+            combo.setStyleSheet(
+                "QComboBox QAbstractItemView { background-color: #3c3c3c; color: #ffffff; border: 1px solid #555555; }")
+            combo.setStyleSheet("")
+
             # Set focus behavior
             if combo.lineEdit():
                 def on_focus():
@@ -994,8 +1102,6 @@ def add_transaction_wizard(parent, table_view):
 
                 combo.lineEdit().installEventFilter(FocusEventFilter(on_focus))
 
-
-    # Function to update credit total
     def update_credit_total():
         try:
             total_transaction_amount = float(total_amount_edit.text() or 0)
