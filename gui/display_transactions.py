@@ -8,7 +8,54 @@ from gui.dialog_utils import show_entity_dialog
 from database import db
 import datetime
 
+# Add these new cache functions
+# Cache for frequently accessed data
+_account_cache = {}
+_currency_cache = {}
+_classification_cache = {}
 
+
+def get_cached_account_name(account_id):
+    """Get account name from cache or load it from database"""
+    if account_id not in _account_cache:
+        account_data = db.get_account_by_id(account_id)
+        _account_cache[account_id] = account_data[1] if account_data else "Unknown"
+    return _account_cache[account_id]
+
+
+def get_cached_currency_name(currency_id):
+    """Get currency name from cache or load it from database"""
+    if currency_id not in _currency_cache:
+        currency_data = db.get_currency_by_id(currency_id)
+        _currency_cache[currency_id] = currency_data[1] if currency_data else "Unknown"
+    return _currency_cache[currency_id]
+
+
+def get_cached_classification_name(classification_id):
+    """Get classification name from cache or load it from database"""
+    if classification_id is None:
+        return ""
+    if classification_id not in _classification_cache:
+        classification_data = db.get_classification_by_id(classification_id)
+        _classification_cache[classification_id] = classification_data[1] if classification_data else ""
+    return _classification_cache[classification_id]
+
+
+def warm_cache():
+    """Preload common data into cache"""
+    # Preload all accounts
+    for account in db.get_all_accounts():
+        _account_cache[account[0]] = account[1]
+
+    # Preload all currencies
+    for currency in db.get_all_currencies():
+        _currency_cache[currency[0]] = currency[1]
+
+    # Preload all classifications
+    cursor = db.conn.cursor()
+    cursor.execute("SELECT id, name FROM classifications")
+    for classification in cursor.fetchall():
+        _classification_cache[classification[0]] = classification[1]
 
 
 def get_selected_row_data(table_view):
@@ -82,6 +129,9 @@ def make_combo_editable(combo, items):
     return combo
 
 def display_transactions(content_frame, toolbar):
+    # Warm up the cache with frequently used data
+    warm_cache()
+
     # Clear existing layout
     layout = content_frame.layout()
     if layout is not None:
@@ -348,9 +398,8 @@ def get_transactions_with_summary(limit=20, filter_params=None):
         total_debit = data[3] or 0
         earliest_date = data[4] or "N/A"
 
-        # Get currency name
-        currency_data = db.get_currency_by_id(currency_id)
-        currency_name = currency_data[1] if currency_data else "Unknown"
+        # Get currency name from cache
+        currency_name = get_cached_currency_name(currency_id)
 
         # Apply amount filters if specified
         if filter_params:
@@ -392,18 +441,11 @@ def load_transaction_lines(table_view, transaction_id, is_debit=True):
         if not is_debit and not credit:
             continue
 
-        # Get account name
-        account_data = db.get_account_by_id(account_id)
-        account_name = account_data[1] if account_data else "Unknown"
+        # Get account name from cache
+        account_name = get_cached_account_name(account_id)
 
         # Get classification name if available
-        #classification_id = line[6] if len(line) > 6 else None
-        classification_name = ""
-        if classification_id:
-            classification_data = db.get_classification_by_id(classification_id)
-            #classification_name = classification_data[1] if classification_data else ""
-            if classification_data:
-                classification_name = classification_data[1]
+        classification_name = get_cached_classification_name(classification_id)
 
         id_item = QStandardItem(str(line_id))
         account_item = QStandardItem(account_name)
