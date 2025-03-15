@@ -839,7 +839,7 @@ def add_transaction_wizard(parent, table_view):
             separator = QFrame()
             separator.setFrameShape(QFrame.HLine)
             separator.setFrameShadow(QFrame.Sunken)
-            line_layout.addWidget(separator)
+            credit_lines_layout.addWidget(separator)
 
         credit_lines_layout.addWidget(line_widget)
 
@@ -892,6 +892,8 @@ def add_transaction_wizard(parent, table_view):
 
         # Store the filter to prevent garbage collection
         line_data['account_filter'] = account_filter
+        # Set tab order to go from date to Add button
+        wizard.setTabOrder(line_date_edit, add_credit_btn)
 
         return line_data
 
@@ -966,7 +968,7 @@ def add_transaction_wizard(parent, table_view):
             separator = QFrame()
             separator.setFrameShape(QFrame.HLine)
             separator.setFrameShadow(QFrame.Sunken)
-            line_layout.addWidget(separator)
+            debit_lines_layout.addWidget(separator)
 
         debit_lines_layout.addWidget(line_widget)
 
@@ -1019,6 +1021,9 @@ def add_transaction_wizard(parent, table_view):
 
         # Store the filter to prevent garbage collection
         line_data['account_filter'] = account_filter
+
+        # Set tab order to go from date to Add button
+        wizard.setTabOrder(line_date_edit, add_debit_btn)
 
         return line_data
 
@@ -1154,8 +1159,11 @@ def add_transaction_wizard(parent, table_view):
             pass
 
     # Connect events for adding lines
-    add_credit_btn.clicked.connect(lambda: add_credit_line(update_credit_total()))
-    add_debit_btn.clicked.connect(lambda: add_debit_line(update_debit_total()))
+    add_credit_btn.clicked.connect(lambda:
+                                   add_credit_line(update_credit_total()).get('account').setFocus())
+
+    add_debit_btn.clicked.connect(lambda:
+                                  add_debit_line(update_debit_total()).get('account').setFocus())
 
     # Update date fields when main date changes
     def update_line_dates():
