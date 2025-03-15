@@ -128,6 +128,25 @@ def make_combo_editable(combo, items):
 
     return combo
 
+
+def update_summary_counts(transactions_table, debit_table, credit_table,
+                          transactions_count_label, credit_lines_count_label, debit_lines_count_label):
+    """Update the summary counts for transactions and lines"""
+    # Count total transactions
+    if transactions_table.model():
+        transactions_count = transactions_table.model().rowCount()
+        transactions_count_label.setText(f"Total Transactions: {transactions_count}")
+
+    # Count credit lines
+    if credit_table.model():
+        credit_lines_count = credit_table.model().rowCount()
+        credit_lines_count_label.setText(f"Total Credit Lines: {credit_lines_count}")
+
+    # Count debit lines
+    if debit_table.model():
+        debit_lines_count = debit_table.model().rowCount()
+        debit_lines_count_label.setText(f"Total Debit Lines: {debit_lines_count}")
+
 def display_transactions(content_frame, toolbar):
     # Warm up the cache with frequently used data
     warm_cache()
@@ -156,11 +175,16 @@ def display_transactions(content_frame, toolbar):
     transactions_widget = QWidget()
     transactions_layout = QVBoxLayout(transactions_widget)
     transactions_widget.setLayout(transactions_layout)
-    splitter.addWidget(transactions_widget)
+
+    # Add label above transactions table
+    transactions_header = QLabel("<h3>Transactions</h3>")
+    transactions_layout.addWidget(transactions_header)
 
     # Create table view for transactions
     transactions_table = QTableView()
     transactions_layout.addWidget(transactions_table)
+
+    splitter.addWidget(transactions_widget)
 
     # Make transactions table non-editable
     transactions_table.setEditTriggers(QTableView.NoEditTriggers)
@@ -175,18 +199,6 @@ def display_transactions(content_frame, toolbar):
     splitter.addWidget(lines_widget)
 
     # Create sections for debit and credit lines
-    debit_label = QLabel("<h3>Debit Lines</h3>")
-    lines_layout.addWidget(debit_label)
-
-    # Create debit lines table
-    debit_table = QTableView()
-    lines_layout.addWidget(debit_table)
-
-    # Make debit lines table non-editable
-    debit_table.setEditTriggers(QTableView.NoEditTriggers)
-
-    # Select entire rows
-    debit_table.setSelectionBehavior(QTableView.SelectRows)
 
     credit_label = QLabel("<h3>Credit Lines</h3>")
     lines_layout.addWidget(credit_label)
@@ -200,6 +212,43 @@ def display_transactions(content_frame, toolbar):
 
     # Select entire rows
     credit_table.setSelectionBehavior(QTableView.SelectRows)
+
+    debit_label = QLabel("<h3>Debit Lines</h3>")
+    lines_layout.addWidget(debit_label)
+
+    # Create debit lines table
+    debit_table = QTableView()
+    lines_layout.addWidget(debit_table)
+
+    # Make debit lines table non-editable
+    debit_table.setEditTriggers(QTableView.NoEditTriggers)
+
+    # Select entire rows
+    debit_table.setSelectionBehavior(QTableView.SelectRows)
+
+    # Add summary bar below all tables
+    summary_widget = QWidget()
+    summary_layout = QHBoxLayout(summary_widget)
+    summary_widget.setLayout(summary_layout)
+
+    # Set a maximum height for the summary bar
+    summary_widget.setMaximumHeight(50)
+
+    # Create labels for the summary information
+    transactions_count_label = QLabel("Total Transactions: 0")
+    credit_lines_count_label = QLabel("Total Credit Lines: 0")
+    debit_lines_count_label = QLabel("Total Debit Lines: 0")
+
+    # Add labels to the summary layout with some spacing
+    summary_layout.addWidget(transactions_count_label)
+    summary_layout.addSpacing(20)
+    summary_layout.addWidget(credit_lines_count_label)
+    summary_layout.addSpacing(20)
+    summary_layout.addWidget(debit_lines_count_label)
+    summary_layout.addStretch(1)  # Push everything to the left
+
+    # Add the summary widget to the main layout
+    layout.addWidget(summary_widget)
 
     # Hide lines widget initially (will show when transaction is selected)
     lines_widget.setVisible(False)
@@ -235,6 +284,9 @@ def display_transactions(content_frame, toolbar):
     # Create function to handle selection changes in the transactions table
     def on_transaction_selected():
         update_transaction_lines_display(transactions_table, lines_widget, debit_table, credit_table)
+        # Update summary counts
+        update_summary_counts(transactions_table, debit_table, credit_table,
+                              transactions_count_label, credit_lines_count_label, debit_lines_count_label)
 
     # Store the function on the table_view for later reconnection
     transactions_table._on_transaction_selected = on_transaction_selected
@@ -244,6 +296,10 @@ def display_transactions(content_frame, toolbar):
 
     # Set sensible initial sizes for the splitter
     splitter.setSizes([500, 300])
+
+    # Initial update of summary counts
+    update_summary_counts(transactions_table, debit_table, credit_table,
+                          transactions_count_label, credit_lines_count_label, debit_lines_count_label)
 
 def load_transactions(table_view, limit=20, filter_params=None, select_transaction_id=None):
     """Load transactions into the table view"""
@@ -841,6 +897,16 @@ def add_transaction_wizard(parent, table_view):
 
     # Function to add a credit line
     def add_credit_line(amount=None):
+        """Wrapper function that calls add_transaction_line with is_debit=False"""
+        return add_transaction_line(is_debit=False, amount=amount)
+    # Function to add a debit line
+    def add_debit_line(amount=None):
+        """Wrapper function that calls add_transaction_line with is_debit=True"""
+        return add_transaction_line(is_debit=True, amount=amount)
+
+    # Add this new combined function
+    def add_transaction_line(is_debit=True, amount=None):
+        """Add a credit or debit line to the transaction wizard"""
         line_widget = QWidget()
         line_layout = QVBoxLayout(line_widget)
         line_layout.setContentsMargins(5, 5, 5, 5)
@@ -891,20 +957,27 @@ def add_transaction_wizard(parent, table_view):
 
         # Remove button
         remove_btn = QPushButton("Remove")
-        if len(credit_line_widgets) == 0:  # First line has no remove button
-            remove_btn.setVisible(False)
         bottom_row.addWidget(remove_btn, 1)
 
         line_layout.addLayout(bottom_row)
 
+        # Determine which container and line widgets list to use
+        lines_container = debit_lines_container if is_debit else credit_lines_container
+        lines_layout = debit_lines_layout if is_debit else credit_lines_layout
+        line_widgets_list = debit_line_widgets if is_debit else credit_line_widgets
+
+        # Hide remove button if this is the first line
+        if len(line_widgets_list) == 0:
+            remove_btn.setVisible(False)
+
         # Only add separator if this isn't the first line
-        if len(credit_line_widgets) > 0:
+        if len(line_widgets_list) > 0:
             separator = QFrame()
             separator.setFrameShape(QFrame.HLine)
             separator.setFrameShadow(QFrame.Sunken)
-            credit_lines_layout.addWidget(separator)
+            lines_layout.addWidget(separator)
 
-        credit_lines_layout.addWidget(line_widget)
+        lines_layout.addWidget(line_widget)
 
         # Track the widget and its components
         line_data = {
@@ -915,11 +988,17 @@ def add_transaction_wizard(parent, table_view):
             'date': line_date_edit,
             'remove': remove_btn
         }
-        credit_line_widgets.append(line_data)
+        line_widgets_list.append(line_data)
 
         # Connect signals
-        amount_edit.textChanged.connect(update_credit_total)
-        remove_btn.clicked.connect(lambda: remove_credit_line(line_data))
+        update_total_func = update_debit_total if is_debit else update_credit_total
+        amount_edit.textChanged.connect(update_total_func)
+
+        # Connect remove button to appropriate function
+        if is_debit:
+            remove_btn.clicked.connect(lambda: remove_debit_line(line_data))
+        else:
+            remove_btn.clicked.connect(lambda: remove_credit_line(line_data))
 
         # Update classification and move focus when account is selected
         def on_account_selected(index):
@@ -955,9 +1034,11 @@ def add_transaction_wizard(parent, table_view):
 
         # Store the filter to prevent garbage collection
         line_data['account_filter'] = account_filter
-        # Set tab order to go from date to Add button
+
+        # Set tab order appropriately
+        add_btn = add_debit_btn if is_debit else add_credit_btn
         wizard.setTabOrder(line_date_edit, remove_btn)
-        wizard.setTabOrder(remove_btn, add_credit_btn)
+        wizard.setTabOrder(remove_btn, add_btn)
 
         return line_data
 
@@ -970,129 +1051,7 @@ def add_transaction_wizard(parent, table_view):
             # Move focus to the add button after removal
             add_credit_btn.setFocus()
 
-    # Function to add a debit line
-    def add_debit_line(amount=None):
-        line_widget = QWidget()
-        line_layout = QVBoxLayout(line_widget)
-        line_layout.setContentsMargins(5, 5, 5, 5)
 
-        # Top row with account and classification
-        top_row = QHBoxLayout()
-
-        # Account label and selection
-        account_label = QLabel("Account:")
-        top_row.addWidget(account_label, 1)
-
-        # Account selection
-        account_combo = QComboBox()
-        accounts = [acc[1] for acc in db.get_all_accounts()]
-        account_combo.addItems(accounts)
-        make_combo_editable(account_combo, accounts)
-        top_row.addWidget(account_combo, 3)
-
-        # Classification selection
-        class_label = QLabel("Classification:")
-        top_row.addWidget(class_label, 1)
-
-        classification_combo = QComboBox()
-        classification_combo.addItem("(None)")
-        top_row.addWidget(classification_combo, 3)
-
-        line_layout.addLayout(top_row)
-
-        # Bottom row with amount and date
-        bottom_row = QHBoxLayout()
-
-        # Amount field
-        amount_label = QLabel("Amount:")
-        bottom_row.addWidget(amount_label, 1)
-
-        amount_edit = QLineEdit()
-        amount_edit.setValidator(QDoubleValidator())
-        if amount:
-            amount_edit.setText(str(amount))
-        bottom_row.addWidget(amount_edit, 3)
-
-        # Date field
-        date_label = QLabel("Date:")
-        bottom_row.addWidget(date_label, 1)
-
-        line_date_edit = QDateEdit(date_edit.date())
-        line_date_edit.setCalendarPopup(True)
-        bottom_row.addWidget(line_date_edit, 3)
-
-        # Remove button
-        remove_btn = QPushButton("Remove")
-        if len(debit_line_widgets) == 0:  # First line has no remove button
-            remove_btn.setVisible(False)
-        bottom_row.addWidget(remove_btn, 1)
-
-        line_layout.addLayout(bottom_row)
-
-        # Only add separator if this isn't the first line
-        if len(debit_line_widgets) > 0:
-            separator = QFrame()
-            separator.setFrameShape(QFrame.HLine)
-            separator.setFrameShadow(QFrame.Sunken)
-            debit_lines_layout.addWidget(separator)
-
-        debit_lines_layout.addWidget(line_widget)
-
-        # Track the widget and its components
-        line_data = {
-            'widget': line_widget,
-            'account': account_combo,
-            'classification': classification_combo,
-            'amount': amount_edit,
-            'date': line_date_edit,
-            'remove': remove_btn
-        }
-        debit_line_widgets.append(line_data)
-
-        # Connect signals
-        amount_edit.textChanged.connect(update_debit_total)
-        remove_btn.clicked.connect(lambda: remove_debit_line(line_data))
-
-        # Update classification and move focus when account is selected
-        def on_account_selected(index):
-            if index >= 0 and index < len(accounts):  # Validate index
-                update_classification_combo(classification_combo, accounts[index])
-                classification_combo.setFocus()
-
-        account_combo.currentIndexChanged.connect(on_account_selected)
-
-        # Handle Enter key press in account combobox
-        class AccountKeyPressFilter(QObject):
-            def __init__(self, combo, accounts, classification_combo):
-                super().__init__()
-                self.combo = combo
-                self.accounts = accounts
-                self.classification_combo = classification_combo
-
-            def eventFilter(self, obj, event):
-                if event.type() == QEvent.KeyPress:
-                    if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
-                        current_text = self.combo.currentText()
-
-                        # Validate account exists
-                        if current_text in self.accounts:
-                            update_classification_combo(self.classification_combo, current_text)
-                            self.classification_combo.setFocus()
-                            return True
-                return False
-
-        account_filter = AccountKeyPressFilter(account_combo, accounts, classification_combo)
-        if account_combo.lineEdit():
-            account_combo.lineEdit().installEventFilter(account_filter)
-
-        # Store the filter to prevent garbage collection
-        line_data['account_filter'] = account_filter
-
-        # Set tab order to go from date to Add button
-        wizard.setTabOrder(line_date_edit, remove_btn)
-        wizard.setTabOrder(remove_btn, add_debit_btn)
-
-        return line_data
 
     # Function to remove a debit line
     def remove_debit_line(line_data):
