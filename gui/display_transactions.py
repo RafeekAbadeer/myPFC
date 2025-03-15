@@ -130,12 +130,25 @@ def make_combo_editable(combo, items):
 
 
 def update_summary_counts(transactions_table, debit_table, credit_table,
-                          transactions_count_label, credit_lines_count_label, debit_lines_count_label):
+                          transactions_count_label, credit_lines_count_label, debit_lines_count_label,
+                          total_count=None, page_size=None, current_page=None):
     """Update the summary counts for transactions and lines"""
-    # Count total transactions
+    # Count displayed transactions
     if transactions_table.model():
-        transactions_count = transactions_table.model().rowCount()
-        transactions_count_label.setText(f"Total Transactions: {transactions_count}")
+        displayed_count = transactions_table.model().rowCount()
+
+        # If we have pagination information, show comprehensive count
+        if total_count is not None:
+            # Format is consistent regardless of page size
+            if page_size is None:
+                transactions_count_label.setText(f"Total Transactions: {displayed_count} of {total_count}")
+            else:
+                start_item = (current_page - 1) * page_size + 1 if displayed_count > 0 else 0
+                end_item = start_item + displayed_count - 1 if displayed_count > 0 else 0
+                transactions_count_label.setText(
+                    f"Total Transactions: {displayed_count} ({start_item}-{end_item} of {total_count})")
+        else:
+            transactions_count_label.setText(f"Total Transactions: {displayed_count}")
     else:
         transactions_count_label.setText("Total Transactions: 0")
 
@@ -233,47 +246,64 @@ def display_transactions(content_frame, toolbar):
             load_transactions(transactions_table, page=current_page - 1,
                               page_size=transactions_table.page_size,
                               filter_params=getattr(transactions_table, 'filter_params', None))
-            page_label.setText(f"Page {current_page - 1}")
             transactions_table.current_page = current_page - 1
+
+            # Update pagination info explicitly after loading transactions
+            update_pagination_info()
 
     def go_to_next_page():
         current_page = getattr(transactions_table, 'current_page', 1)
         load_transactions(transactions_table, page=current_page + 1,
                           page_size=transactions_table.page_size,
                           filter_params=getattr(transactions_table, 'filter_params', None))
-        page_label.setText(f"Page {current_page + 1}")
         transactions_table.current_page = current_page + 1
 
+        # Update pagination info explicitly
+        update_pagination_info()
+
     def change_page_size():
-        page_size = page_size_combo.currentText()
-        if page_size == "All":
+        selected_page_size = page_size_combo.currentText()
+        if selected_page_size == "All":
             page_size = None
         else:
-            page_size = int(page_size)
+            page_size = int(selected_page_size)
 
         # Store the current filter parameters
         filter_params = getattr(transactions_table, 'filter_params', None)
 
+        # Store new pagination values - Do this BEFORE loading transactions
+        transactions_table.current_page = 1
+        transactions_table.page_size = page_size
+
         # Load transactions with the new page size
         load_transactions(transactions_table, page=1, page_size=page_size, filter_params=filter_params)
 
-        # Update page label
-        page_label.setText("Page 1")
-
-        # Store new pagination values
-        transactions_table.current_page = 1
-        transactions_table.page_size = page_size
+        # Get the total count for the summary
+        total_count = db.get_transaction_count(filter_params)
+        displayed_count = transactions_table.model().rowCount() if transactions_table.model() else 0
 
         # Force selection to update (this should trigger on_transaction_selected)
         if transactions_table.model() and transactions_table.model().rowCount() > 0:
             transactions_table.selectRow(0)
-        else:
-            # If no rows, explicitly update counts
-            update_summary_counts(transactions_table, debit_table, credit_table,
-                                  transactions_count_label, credit_lines_count_label, debit_lines_count_label)
 
-        # Update pagination info
-        update_pagination_info()
+        # Explicitly update the summary with the correct counts
+        update_summary_counts(transactions_table, debit_table, credit_table,
+                              transactions_count_label, credit_lines_count_label, debit_lines_count_label,
+                              total_count, page_size, 1)  # 1 for page number since we reset to page 1
+
+        # Update the pagination control text
+        if page_size is None:
+            page_text = "Page: All"
+            total_pages = 1
+        else:
+            total_pages = max(1, (total_count + page_size - 1) // page_size)
+            page_text = f"Page 1 of {total_pages}"
+
+        page_label.setText(page_text)
+
+        # Enable/disable navigation buttons
+        prev_page_btn.setEnabled(False)  # First page, so disable previous
+        next_page_btn.setEnabled(page_size is not None and total_pages > 1)
 
     prev_page_btn.clicked.connect(go_to_prev_page)
     next_page_btn.clicked.connect(go_to_next_page)
@@ -363,28 +393,28 @@ def display_transactions(content_frame, toolbar):
     reset_filter_action.triggered.connect(lambda: reset_transaction_filters(content_frame, transactions_table))
 
     # Load initial transaction data
-    load_transactions(transactions_table)
+    page_size = page_size_combo.currentText()
+    if page_size == "All":
+        initial_page_size = None
+    else:
+        initial_page_size = int(page_size)
+    load_transactions(transactions_table, page=1, page_size=initial_page_size)
 
     def update_pagination_info():
         current_page = getattr(transactions_table, 'current_page', 1)
-        page_size = getattr(transactions_table, 'page_size', 20)
+        page_size = getattr(transactions_table, 'page_size', None)  # Default to None instead of 20
         filter_params = getattr(transactions_table, 'filter_params', None)
 
         # Get total count
         total_count = db.get_transaction_count(filter_params)
 
-        # Calculate displayed items count
-        displayed_count = transactions_table.model().rowCount() if transactions_table.model() else 0
-
         # Calculate total pages - handle page_size = None (All records)
         if page_size is None:
             total_pages = 1
-            page_text = f"Showing all {displayed_count} items ({total_count} total)"
+            page_text = "Page: All"
         else:
             total_pages = max(1, (total_count + page_size - 1) // page_size)
-            start_item = (current_page - 1) * page_size + 1 if displayed_count > 0 else 0
-            end_item = start_item + displayed_count - 1 if displayed_count > 0 else 0
-            page_text = f"Page {current_page} of {total_pages} (showing {start_item}-{end_item} of {total_count})"
+            page_text = f"Page {current_page} of {total_pages}"
 
         # Update label
         page_label.setText(page_text)
@@ -392,6 +422,11 @@ def display_transactions(content_frame, toolbar):
         # Enable/disable buttons
         prev_page_btn.setEnabled(current_page > 1)
         next_page_btn.setEnabled(page_size is not None and current_page < total_pages)
+
+        # Update the summary count with complete information
+        update_summary_counts(transactions_table, debit_table, credit_table,
+                              transactions_count_label, credit_lines_count_label, debit_lines_count_label,
+                              total_count, page_size, current_page)
 
     # Store the update_pagination_info function on the table_view
     transactions_table.update_pagination_info = update_pagination_info
@@ -426,12 +461,20 @@ def display_transactions(content_frame, toolbar):
     # Set sensible initial sizes for the splitter
     splitter.setSizes([500, 300])
 
-    # Initial update of summary counts
-    update_summary_counts(transactions_table, debit_table, credit_table,
-                          transactions_count_label, credit_lines_count_label, debit_lines_count_label)
+    # Load initial transaction data
+    page_size = page_size_combo.currentText()
+    if page_size == "All":
+        initial_page_size = None
+    else:
+        initial_page_size = int(page_size)
+
+    load_transactions(transactions_table, page=1, page_size=initial_page_size)
+
+    # Explicitly update pagination info after initial load to ensure summary shows complete information
+    update_pagination_info()
 
 
-def load_transactions(table_view, page=1, page_size=20, filter_params=None, select_transaction_id=None):
+def load_transactions(table_view, page=1, page_size=None, filter_params=None, select_transaction_id=None):
     # Calculate offset
     offset = (page - 1) * page_size if page_size else 0
 
@@ -445,6 +488,9 @@ def load_transactions(table_view, page=1, page_size=20, filter_params=None, sele
     on_transaction_selected = None
     if hasattr(table_view, '_on_transaction_selected'):
         on_transaction_selected = table_view._on_transaction_selected
+    # At the end of load_transactions function, add:
+    if hasattr(table_view, 'update_pagination_info'):
+        table_view.update_pagination_info()
 
     model = QStandardItemModel()
     model.setHorizontalHeaderLabels(["ID", "Date", "Description", "Amount", "Currency"])
@@ -1828,3 +1874,6 @@ def filter_transactions(parent, table_view):
 
         # Reload transactions with filter
         load_transactions(table_view, limit=None, filter_params=filter_params)
+    # At the end of load_transactions function, add:
+    if hasattr(table_view, 'update_pagination_info'):
+        table_view.update_pagination_info()

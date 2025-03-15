@@ -498,10 +498,11 @@ class Database:
 
     def get_transaction_count(self, filter_params=None):
         """Get the total number of transactions matching the filter"""
-        query = """
+        # Build the query dynamically based on filters
+        base_query = """
             SELECT COUNT(DISTINCT t.id)
             FROM transactions t
-            LEFT JOIN transaction_lines tl ON t.id = tl.transaction_id
+            JOIN transaction_lines tl ON t.id = tl.transaction_id
         """
 
         where_clauses = []
@@ -509,20 +510,72 @@ class Database:
 
         # Apply filters if provided
         if filter_params:
-            # Same filter logic as in get_transactions_with_summary
             if 'date_from' in filter_params:
                 where_clauses.append("tl.date >= ?")
                 params.append(filter_params['date_from'])
 
-            # Add other filters as in get_transactions_with_summary
+            if 'date_to' in filter_params:
+                where_clauses.append("tl.date <= ?")
+                params.append(filter_params['date_to'])
+
+            if 'account_id' in filter_params:
+                where_clauses.append("tl.account_id = ?")
+                params.append(filter_params['account_id'])
+
+            if 'description' in filter_params:
+                where_clauses.append("t.description LIKE ?")
+                params.append(f"%{filter_params['description']}%")
 
         # Add WHERE clause if we have conditions
         if where_clauses:
-            query += " WHERE " + " AND ".join(where_clauses)
+            base_query += " WHERE " + " AND ".join(where_clauses)
 
         # Execute the query
-        self.cursor.execute(query, params)
-        return self.cursor.fetchone()[0]
+        self.cursor.execute(base_query, params)
+        count = self.cursor.fetchone()[0]
+
+        # Apply amount filters if specified (needs to be done post-query)
+        if filter_params and ('min_amount' in filter_params or 'max_amount' in filter_params):
+            # For amount filters, we need to get all transactions and filter in Python
+            # This is because the amount is a calculated value from the lines
+            transactions = []
+            filtered_count = 0
+
+            # Get all transaction IDs that match the other filters
+            if not where_clauses:
+                self.cursor.execute(
+                    "SELECT DISTINCT t.id FROM transactions t JOIN transaction_lines tl ON t.id = tl.transaction_id")
+            else:
+                self.cursor.execute(
+                    "SELECT DISTINCT t.id FROM transactions t JOIN transaction_lines tl ON t.id = tl.transaction_id WHERE " +
+                    " AND ".join(where_clauses),
+                    params
+                )
+
+            transaction_ids = [row[0] for row in self.cursor.fetchall()]
+
+            # For each transaction, calculate the total and apply amount filters
+            for transaction_id in transaction_ids:
+                self.cursor.execute(
+                    "SELECT SUM(IFNULL(tl.debit, 0)) FROM transaction_lines tl WHERE tl.transaction_id = ?",
+                    (transaction_id,)
+                )
+                total_amount = self.cursor.fetchone()[0] or 0
+
+                # Apply amount filters
+                include = True
+                if 'min_amount' in filter_params and total_amount < filter_params['min_amount']:
+                    include = False
+
+                if 'max_amount' in filter_params and total_amount > filter_params['max_amount']:
+                    include = False
+
+                if include:
+                    filtered_count += 1
+
+            return filtered_count
+
+        return count
 
 # Initialize the database
 db = Database('finance.db')
