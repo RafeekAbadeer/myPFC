@@ -503,25 +503,26 @@ def add_transaction_wizard(parent, table_view):
     layout1.addLayout(desc_layout)
 
     # Amount, Date and Currency fields
-    details_layout = QHBoxLayout()
+    details_layout = QGridLayout()  # Change to grid layout for better control
 
-    details_layout.addWidget(QLabel("Total Amount:"))
+    details_layout.addWidget(QLabel("Total Amount:"), 0, 0)
     total_amount_edit = QLineEdit()
     total_amount_edit.setValidator(QDoubleValidator())
-    details_layout.addWidget(total_amount_edit)
+    total_amount_edit.setMaximumWidth(150)  # Limit width
+    details_layout.addWidget(total_amount_edit, 0, 1)
 
-    details_layout.addWidget(QLabel("Date:"))
+    details_layout.addWidget(QLabel("Date:"), 0, 2)
     date_edit = QDateEdit(QDate.currentDate())
     date_edit.setCalendarPopup(True)
-    details_layout.addWidget(date_edit)
+    details_layout.addWidget(date_edit, 0, 3)
 
-    details_layout.addWidget(QLabel("Currency:"))
+    details_layout.addWidget(QLabel("Currency:"), 0, 4)
     currency_combo = QComboBox()
     currencies = [curr[1] for curr in db.get_all_currencies()]
     currency_combo.addItems(currencies)
     default_index = currencies.index("EGP") if "EGP" in currencies else 0
     currency_combo.setCurrentIndex(default_index)
-    details_layout.addWidget(currency_combo)
+    details_layout.addWidget(currency_combo, 0, 5)
 
     layout1.addLayout(details_layout)
 

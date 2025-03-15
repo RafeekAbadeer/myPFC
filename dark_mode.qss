@@ -61,6 +61,21 @@ QWizard #qt_wizard_subtitlelabel {
   background-color: transparent;
 }
 
+/* Fix font sizing inconsistencies*/
+QWizard, QWizardPage, QTableView, QHeaderView, QHeaderView::section {
+    font-size: 9pt;
+}
+
+QWizard QLabel, QWizard QPushButton, QWizard QLineEdit, QWizard QComboBox, QWizard QDateEdit {
+    font-size: 9pt;
+}
+
+/* Make header text more visible */
+QHeaderView::section {
+    font-weight: bold;
+    padding: 4px;
+}
+
 /* Fix specific widgets that need different styling */
 QWizard QLineEdit,
 QWizard QComboBox,
@@ -264,10 +279,17 @@ QMenuBar::item:selected {
 }
 
 /* Menu */
-QMenu::item:selected {
-  background-color: #575757;
-  color: #ffffff;
+QMenu, QComboBox QAbstractItemView {
+    background-color: #3c3c3c;
+    color: #ffffff;
+    border: 1px solid #555555;
 }
+
+QMenu::item:selected, QComboBox QAbstractItemView::item:selected {
+    background-color: #575757;
+    color: #ffffff
+}
+
 
 
 /* Tool Bar */
