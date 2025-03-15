@@ -935,8 +935,13 @@ def add_transaction_wizard(parent, table_view):
     # Connect the button to start a new transaction wizard
     def start_new_transaction():
         # This will be called when CustomButton1 is clicked
+        wizard.is_adding_another = True
         # We need to accept the current wizard first
         wizard.accept()
+
+        # Show success message here BEFORE starting a new wizard
+        QMessageBox.information(parent, "Success", "Transaction added successfully.")
+
         # Then start a new one
         QTimer.singleShot(100, lambda: add_transaction_wizard(parent, table_view))
 
@@ -1515,7 +1520,11 @@ def add_transaction_wizard(parent, table_view):
             if hasattr(table_view, '_on_transaction_selected'):
                 table_view._on_transaction_selected()
 
-            QMessageBox.information(parent, "Success", "Transaction added successfully.")
+            if hasattr(wizard, 'is_adding_another') and wizard.is_adding_another:
+                # Skip showing success message - it will be shown before the next wizard opens
+                pass
+            else:
+                QMessageBox.information(parent, "Success", "Transaction added successfully.")
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to add transaction: {str(e)}")
 

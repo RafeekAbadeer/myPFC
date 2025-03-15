@@ -575,3 +575,8 @@ QScrollBar:vertical {
     width: 14px;
     margin: 0px;
 }
+/* Pagination controls combobox */
+QComboBox#pagination_size_combo {
+    min-width: 100px;
+    padding-right: 5px;
+}
