@@ -408,103 +408,52 @@ def display_transactions(content_frame, toolbar):
             # Use QTimer to allow UI to update before loading
             QTimer.singleShot(10, lambda: load_transaction_details(transaction_id))
 
-    def load_transactions(table_view, page=1, page_size=20, filter_params=None, select_transaction_id=None):
-        # Calculate offset
-        offset = (page - 1) * page_size if page_size is not None else 0
+    def load_transaction_details(transaction_id):
+        # Load detailed transaction data
+        load_transaction_lines(debit_table, transaction_id, is_debit=True)
+        load_transaction_lines(credit_table, transaction_id, is_debit=False)
 
-        # Store the current page and page size on the table_view for reference
-        table_view.current_page = page
-        table_view.page_size = page_size
-        table_view.filter_params = filter_params
+        # Update summary counts
+        update_summary_counts(transactions_table, debit_table, credit_table,
+                              transactions_count_label, credit_lines_count_label, debit_lines_count_label)
 
-        # Store the on_transaction_selected function for reconnection
-        on_transaction_selected = None
-        if hasattr(table_view, '_on_transaction_selected'):
-            on_transaction_selected = table_view._on_transaction_selected
+    # Store the function on the table_view for later reconnection
+    transactions_table._on_transaction_selected = on_transaction_selected
 
-        model = QStandardItemModel()
-        model.setHorizontalHeaderLabels(["ID", "Date", "Description", "Amount", "Currency"])
+    # Connect selection change signal
+    transactions_table.selectionModel().selectionChanged.connect(on_transaction_selected)
 
-        # Get transactions from database with pagination parameters
-        transactions = get_transactions_with_summary(page_size, offset, filter_params)
+    # Set sensible initial sizes for the splitter
+    splitter.setSizes([500, 300])
 
-        for transaction in transactions:
-            transaction_id = transaction['id']
-            date = transaction['date']
-            description = transaction['description']
-            amount = transaction['amount']
-            currency = transaction['currency']
+    # Initial update of summary counts
+    update_summary_counts(transactions_table, debit_table, credit_table,
+                          transactions_count_label, credit_lines_count_label, debit_lines_count_label)
 
-            id_item = QStandardItem(str(transaction_id))
-            description_item = QStandardItem(description)
-            amount_item = QStandardItem(f"{amount:.2f}")
-            date_item = QStandardItem(date)
-            currency_item = QStandardItem(currency)
 
-            # Set alignment for numeric columns
-            id_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            amount_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+def load_transactions(table_view, page=1, page_size=20, filter_params=None, select_transaction_id=None):
+    # Calculate offset
+    offset = (page - 1) * page_size if page_size else 0
 
-            # Set UserRole data for proper sorting
-            id_item.setData(int(transaction_id), Qt.UserRole)
-            date_item.setData(QDate.fromString(date, "yyyy-MM-dd"), Qt.UserRole)
-            description_item.setData(description.lower(), Qt.UserRole)
-            amount_item.setData(float(amount), Qt.UserRole)
+    # Store the current page and page size on the table_view for reference
+    table_view.current_page = page
+    table_view.page_size = page_size
+    table_view.filter_params = filter_params
 
-            # Set date for sorting
-            try:
-                date_obj = datetime.datetime.strptime(date, "%Y-%m-%d").date()
-                date_qdate = QDate(date_obj.year, date_obj.month, date_obj.day)
-                date_item.setData(date_qdate, Qt.UserRole)
-            except:
-                # If date parsing fails, use a default old date
-                date_item.setData(QDate(1900, 1, 1), Qt.UserRole)
+    """Load transactions into the table view"""
+    # Store the on_transaction_selected function for reconnection
+    on_transaction_selected = None
+    if hasattr(table_view, '_on_transaction_selected'):
+        on_transaction_selected = table_view._on_transaction_selected
 
-            currency_item.setData(currency.lower(), Qt.UserRole)
+    model = QStandardItemModel()
+    model.setHorizontalHeaderLabels(["ID", "Date", "Description", "Amount", "Currency"])
 
-            model.appendRow([id_item, date_item, description_item, amount_item, currency_item])
+    # Get transactions from database with appropriate limit
+    actual_limit = page_size  # Use the page_size as the limit
+    transactions = get_transactions_with_summary(actual_limit, offset, filter_params)
 
-        # Create proxy model for sorting
-        proxy_model = QSortFilterProxyModel()
-        proxy_model.setSourceModel(model)
-        proxy_model.setSortRole(Qt.UserRole)
-
-        # Store the current selection if any and no specific selection is requested
-        selected_transaction_id = None
-        if select_transaction_id is None and table_view.model() and table_view.selectionModel() and table_view.selectionModel().hasSelection():
-            idx = table_view.selectionModel().currentIndex()
-            selected_transaction_id = table_view.model().data(table_view.model().index(idx.row(), 0))
-        else:
-            selected_transaction_id = select_transaction_id
-
-        # Set the proxy model to the table view
-        table_view.setModel(proxy_model)
-
-        # Reconnect the selection change signal
-        if on_transaction_selected:
-            table_view._on_transaction_selected = on_transaction_selected
-            table_view.selectionModel().selectionChanged.connect(on_transaction_selected)
-
-        # Resize columns
-        table_view.resizeColumnsToContents()
-
-        # Sort by date descending by default (most recent first)
-        table_view.sortByColumn(0, Qt.DescendingOrder)
-        table_view.sortByColumn(1, Qt.DescendingOrder)
-
-        # Restore selection if possible
-        if selected_transaction_id:
-            for row in range(proxy_model.rowCount()):
-                if str(proxy_model.data(proxy_model.index(row, 0))) == str(selected_transaction_id):
-                    table_view.selectRow(row)
-                    break
-
-        # Set sensible column widths
-        table_view.resizeColumnsToContents()
-
-        # Call update_pagination_info if available
-        if hasattr(table_view, 'update_pagination_info'):
-            table_view.update_pagination_info()
+    # Rest of your existing code
 
     for transaction in transactions:
         transaction_id = transaction['id']
