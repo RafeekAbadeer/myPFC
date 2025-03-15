@@ -56,14 +56,14 @@ def make_combo_editable(combo, items):
     completer.setFilterMode(Qt.MatchContains)
     combo.setCompleter(completer)
 
+
+    # Set empty text initially instead of showing first item
+    combo.setCurrentText("")
+
     # Clear the text when focused to provide better UX
     def on_focus():
-        # Save current text
-        current_text = combo.currentText()
         # Clear the line edit
         combo.lineEdit().clear()
-        # Store the previous text for later use if needed
-        combo.lineEdit().setProperty("previous_text", current_text)
 
     combo.lineEdit().installEventFilter(FocusEventFilter(on_focus))
 
@@ -1344,6 +1344,15 @@ def add_transaction_wizard(parent, table_view):
             items = [c[1] for c in classifications]
             make_combo_editable(combo, items)
 
+            # Get the background color from the parent widget
+            background_color = combo.palette().color(combo.backgroundRole()).name()
+            text_color = combo.palette().color(combo.foregroundRole()).name()
+
+            # Apply these colors to the line edit
+            if combo.lineEdit():
+                combo.lineEdit().setStyleSheet(
+                    f"QLineEdit {{ background-color: {background_color}; color: {text_color}; }}")
+
 
     # Function to update credit total
     def update_credit_total():
@@ -1417,16 +1426,30 @@ def add_transaction_wizard(parent, table_view):
             try:
                 total_amount = float(total_amount_edit.text() or 0)
                 if total_amount > 0:
-                    add_credit_line(total_amount)
+                    line_data = add_credit_line(total_amount)
+                    # Set focus to the line edit, not the combo itself
+                    if line_data['account'].lineEdit():
+                        line_data['account'].lineEdit().setFocus()
+
+                    line_data['amount'].textChanged.emit(line_data['amount'].text())
             except (ValueError, TypeError):
-                add_credit_line()
+                line_data = add_credit_line()
+                if line_data['account'].lineEdit():
+                    line_data['account'].lineEdit().setFocus()
         elif current_id == 2 and not debit_line_widgets:  # Debit page
             try:
                 total_amount = float(total_amount_edit.text() or 0)
                 if total_amount > 0:
-                    add_debit_line(total_amount)
+                    line_data = add_debit_line(total_amount)
+                    # Set focus to the line edit, not the combo itself
+                    if line_data['account'].lineEdit():
+                        line_data['account'].lineEdit().setFocus()
+
+                    line_data['amount'].textChanged.emit(line_data['amount'].text())
             except (ValueError, TypeError):
-                add_debit_line()
+                line_data = add_debit_line()
+                if line_data['account'].lineEdit():
+                    line_data['account'].lineEdit().setFocus()
 
     wizard.currentIdChanged.connect(on_current_id_changed)
 
