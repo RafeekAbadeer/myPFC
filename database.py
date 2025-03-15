@@ -96,6 +96,10 @@ class Database:
             '''CREATE INDEX IF NOT EXISTS idx_transaction_lines_transaction_id ON transaction_lines (transaction_id)''')
         self.cursor.execute('''CREATE INDEX IF NOT EXISTS idx_transaction_lines_classification_id 
                                ON transaction_lines (classification_id)''')
+        # Add these indexes
+        self.cursor.execute('''CREATE INDEX IF NOT EXISTS idx_transaction_lines_date ON transaction_lines (date)''')
+        self.cursor.execute('''CREATE INDEX IF NOT EXISTS idx_transaction_lines_transaction_date 
+                               ON transaction_lines (transaction_id, date)''')
 
         # Create triggers
         self.cursor.execute('''CREATE TRIGGER IF NOT EXISTS ensure_debit_credit_positive
@@ -491,6 +495,34 @@ class Database:
         """Rollback a database transaction"""
         #conn = db.get_connection()
         self.conn.execute("ROLLBACK")
+
+    def get_transaction_count(self, filter_params=None):
+        """Get the total number of transactions matching the filter"""
+        query = """
+            SELECT COUNT(DISTINCT t.id)
+            FROM transactions t
+            LEFT JOIN transaction_lines tl ON t.id = tl.transaction_id
+        """
+
+        where_clauses = []
+        params = []
+
+        # Apply filters if provided
+        if filter_params:
+            # Same filter logic as in get_transactions_with_summary
+            if 'date_from' in filter_params:
+                where_clauses.append("tl.date >= ?")
+                params.append(filter_params['date_from'])
+
+            # Add other filters as in get_transactions_with_summary
+
+        # Add WHERE clause if we have conditions
+        if where_clauses:
+            query += " WHERE " + " AND ".join(where_clauses)
+
+        # Execute the query
+        self.cursor.execute(query, params)
+        return self.cursor.fetchone()[0]
 
 # Initialize the database
 db = Database('finance.db')

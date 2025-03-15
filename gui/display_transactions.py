@@ -198,6 +198,63 @@ def display_transactions(content_frame, toolbar):
     lines_widget.setLayout(lines_layout)
     splitter.addWidget(lines_widget)
 
+    # Add after the transactions table but before the lines widget
+    pagination_widget = QWidget()
+    pagination_layout = QHBoxLayout(pagination_widget)
+    pagination_widget.setLayout(pagination_layout)
+
+    # Add pagination controls
+    prev_page_btn = QPushButton("Previous")
+    page_label = QLabel("Page 1")
+    next_page_btn = QPushButton("Next")
+    page_size_combo = QComboBox()
+    page_size_combo.addItems(["20", "50", "100", "All"])
+
+    pagination_layout.addWidget(prev_page_btn)
+    pagination_layout.addWidget(page_label)
+    pagination_layout.addWidget(next_page_btn)
+    pagination_layout.addWidget(QLabel("Items per page:"))
+    pagination_layout.addWidget(page_size_combo)
+    pagination_layout.addStretch()
+
+    # Add to main layout
+    transactions_layout.addWidget(pagination_widget)
+
+    # Connect pagination controls
+    def go_to_prev_page():
+        current_page = getattr(transactions_table, 'current_page', 1)
+        if current_page > 1:
+            load_transactions(transactions_table, page=current_page - 1,
+                              page_size=transactions_table.page_size,
+                              filter_params=getattr(transactions_table, 'filter_params', None))
+            page_label.setText(f"Page {current_page - 1}")
+            transactions_table.current_page = current_page - 1
+
+    def go_to_next_page():
+        current_page = getattr(transactions_table, 'current_page', 1)
+        load_transactions(transactions_table, page=current_page + 1,
+                          page_size=transactions_table.page_size,
+                          filter_params=getattr(transactions_table, 'filter_params', None))
+        page_label.setText(f"Page {current_page + 1}")
+        transactions_table.current_page = current_page + 1
+
+    def change_page_size():
+        page_size = page_size_combo.currentText()
+        if page_size == "All":
+            page_size = None
+        else:
+            page_size = int(page_size)
+
+        load_transactions(transactions_table, page=1, page_size=page_size,
+                          filter_params=getattr(transactions_table, 'filter_params', None))
+        page_label.setText("Page 1")
+        transactions_table.current_page = 1
+        transactions_table.page_size = page_size
+
+    prev_page_btn.clicked.connect(go_to_prev_page)
+    next_page_btn.clicked.connect(go_to_next_page)
+    page_size_combo.currentIndexChanged.connect(change_page_size)
+
     # Create sections for debit and credit lines
 
     credit_label = QLabel("<h3>Credit Lines</h3>")
@@ -266,24 +323,62 @@ def display_transactions(content_frame, toolbar):
     edit_action = QAction(QIcon('icons/edit.png'), "Edit", toolbar)
     delete_action = QAction(QIcon('icons/delete.png'), "Delete", toolbar)
     filter_action = QAction(QIcon('icons/filter.png'), "Filter", toolbar)
+    reset_filter_action = QAction(QIcon('icons/clear.png'), "Reset Filter", toolbar)
 
     toolbar.insertAction(actions_to_keep[0], add_action)
     toolbar.insertAction(actions_to_keep[0], edit_action)
     toolbar.insertAction(actions_to_keep[0], delete_action)
     toolbar.insertAction(actions_to_keep[0], filter_action)
+    toolbar.insertAction(actions_to_keep[0], reset_filter_action)
 
     # Connect actions for main transactions
     add_action.triggered.connect(lambda: add_transaction_wizard(content_frame, transactions_table))
     edit_action.triggered.connect(lambda: edit_transaction(content_frame, transactions_table))
     delete_action.triggered.connect(lambda: delete_transaction(content_frame, transactions_table))
     filter_action.triggered.connect(lambda: filter_transactions(content_frame, transactions_table))
+    reset_filter_action.triggered.connect(lambda: reset_transaction_filters(content_frame, transactions_table))
 
     # Load initial transaction data
     load_transactions(transactions_table)
 
+    def update_pagination_info():
+        current_page = getattr(transactions_table, 'current_page', 1)
+        page_size = getattr(transactions_table, 'page_size', 20)
+        filter_params = getattr(transactions_table, 'filter_params', None)
+
+        # Get total count
+        total_count = db.get_transaction_count(filter_params)
+
+        # Calculate total pages
+        total_pages = (total_count + page_size - 1) // page_size if page_size else 1
+
+        # Update label
+        page_label.setText(f"Page {current_page} of {total_pages} ({total_count} items)")
+
+        # Enable/disable buttons
+        prev_page_btn.setEnabled(current_page > 1)
+        next_page_btn.setEnabled(current_page < total_pages)
+
+    # Call this after loading transactions
+    update_pagination_info()
+
     # Create function to handle selection changes in the transactions table
     def on_transaction_selected():
-        update_transaction_lines_display(transactions_table, lines_widget, debit_table, credit_table)
+        row_data = get_selected_row_data(transactions_table)
+        if row_data:
+            transaction_id = int(row_data["ID"])
+
+            # Show loading indicator
+            lines_widget.setVisible(True)
+
+            # Use QTimer to allow UI to update before loading
+            QTimer.singleShot(10, lambda: load_transaction_details(transaction_id))
+
+    def load_transaction_details(transaction_id):
+        # Load detailed transaction data
+        load_transaction_lines(debit_table, transaction_id, is_debit=True)
+        load_transaction_lines(credit_table, transaction_id, is_debit=False)
+
         # Update summary counts
         update_summary_counts(transactions_table, debit_table, credit_table,
                               transactions_count_label, credit_lines_count_label, debit_lines_count_label)
@@ -301,7 +396,15 @@ def display_transactions(content_frame, toolbar):
     update_summary_counts(transactions_table, debit_table, credit_table,
                           transactions_count_label, credit_lines_count_label, debit_lines_count_label)
 
-def load_transactions(table_view, limit=20, filter_params=None, select_transaction_id=None):
+
+def load_transactions(table_view, page=1, page_size=20, filter_params=None, select_transaction_id=None):
+    # Calculate offset
+    offset = (page - 1) * page_size
+
+    # Store the current page and page size on the table_view for reference
+    table_view.current_page = page
+    table_view.page_size = page_size
+
     """Load transactions into the table view"""
     # Store the on_transaction_selected function for reconnection
     on_transaction_selected = None
@@ -398,15 +501,13 @@ def load_transactions(table_view, limit=20, filter_params=None, select_transacti
     # Hide the ID column
     #table_view.hideColumn(0)
 
-def get_transactions_with_summary(limit=20, filter_params=None):
+def get_transactions_with_summary(limit=20, offset=0, filter_params=None):
     """Get transactions from database with summary information"""
     # Build the query dynamically based on filters
     query = """
-        SELECT t.id, t.description, t.currency_id, 
-               SUM(IFNULL(tl.debit, 0)) as total_debit,
-               MIN(tl.date) as earliest_date
-        FROM transactions t
-        LEFT JOIN transaction_lines tl ON t.id = tl.transaction_id
+        WITH filtered_lines AS (
+            SELECT tl.transaction_id, tl.date, tl.debit, tl.account_id
+            FROM transaction_lines tl
     """
 
     where_clauses = []
@@ -434,12 +535,21 @@ def get_transactions_with_summary(limit=20, filter_params=None):
     if where_clauses:
         query += " WHERE " + " AND ".join(where_clauses)
 
-    # Group by transaction and order by date
-    query += " GROUP BY t.id, t.description, t.currency_id ORDER BY earliest_date DESC"
+    query += """
+        )
+        SELECT t.id, t.description, t.currency_id, 
+               SUM(IFNULL(fl.debit, 0)) as total_debit,
+               MIN(fl.date) as earliest_date,
+               COUNT(fl.transaction_id) as line_count
+        FROM transactions t
+        JOIN filtered_lines fl ON t.id = fl.transaction_id
+        GROUP BY t.id, t.description, t.currency_id 
+        ORDER BY earliest_date DESC
+    """
 
     # Apply limit if specified
     if limit:
-        query += f" LIMIT {limit}"
+        query += f" LIMIT {limit} OFFSET {offset}"
 
     # Execute the query
     cursor = db.conn.cursor()
@@ -1297,6 +1407,22 @@ def add_transaction_wizard(parent, table_view):
             QMessageBox.information(parent, "Success", "Transaction added successfully.")
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to add transaction: {str(e)}")
+
+
+# Define the function
+def reset_transaction_filters(table_view):
+    # Reset filters
+    table_view.filter_params = None
+
+    # Reset to first page with default page size
+    load_transactions(table_view, page=1, page_size=20)
+
+    # Update pagination display
+    page_label.setText("Page 1")
+    update_pagination_info()
+
+    # Inform the user
+    QMessageBox.information(parent, "Filters Reset", "All transaction filters have been reset.")
 
 def save_complete_transaction(description, currency_id, credit_lines, debit_lines):
     """Save a complete transaction with all its lines in one operation"""
