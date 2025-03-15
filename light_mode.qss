@@ -101,7 +101,17 @@ QCheckBox::indicator:unchecked {
   image: url(icons/unchecked.png);
 }
 
+
+
 /* Splitter */
 QSplitter::handle {
   background-color: #e0e0e0;
+}
+
+QWizard, QWizardPage, QTableView, QHeaderView, QHeaderView::section {
+    font-size: 9pt;
+}
+
+QWizard QLabel, QWizard QPushButton, QWizard QLineEdit, QWizard QComboBox, QWizard QDateEdit {
+    font-size: 9pt;
 }

@@ -729,9 +729,9 @@ def add_transaction_wizard(parent, table_view):
 
             # Highlight if exceeds total amount
             if credit_total > total_transaction_amount:
-                credit_total_label.setStyleSheet("QLabel { color: red; font-weight: bold; }")
+                credit_total_label.setStyleSheet("QLabel { color: #b43232; font-weight: bold; }")
                 for line in credit_line_widgets:
-                    line['amount'].setStyleSheet("QLineEdit { background-color: #FFE0E0; }")
+                    line['amount'].setStyleSheet("QLineEdit { background-color: #FF9999; border: 2px solid #b43232; }")
             else:
                 credit_total_label.setStyleSheet("")
                 for line in credit_line_widgets:
@@ -763,9 +763,9 @@ def add_transaction_wizard(parent, table_view):
 
             # Highlight if exceeds total amount
             if debit_total > total_transaction_amount:
-                debit_total_label.setStyleSheet("QLabel { color: red; font-weight: bold; }")
+                debit_total_label.setStyleSheet("QLabel { color: #b43232; font-weight: bold; }")
                 for line in debit_line_widgets:
-                    line['amount'].setStyleSheet("QLineEdit { background-color: #FFE0E0; }")
+                    line['amount'].setStyleSheet("QLineEdit { background-color: #FF9999; border: 2px solid #b43232; }")
             else:
                 debit_total_label.setStyleSheet("")
                 for line in debit_line_widgets:
@@ -776,6 +776,26 @@ def add_transaction_wizard(parent, table_view):
 
         except (ValueError, TypeError):
             return 0
+
+    def can_add_new_line(total_amount, current_total, parent_widget):
+        """Check if a new line can be added based on the remaining amount"""
+        try:
+            total_amount = float(total_amount or 0)
+            remaining = total_amount - current_total
+
+            # If there's no more remaining amount, show a message
+            if remaining <= 0:
+                QMessageBox.warning(
+                    parent_widget,
+                    "Cannot Add Line",
+                    "The total amount has been allocated already. You cannot add more lines."
+                )
+                return False, 0
+
+            return True, remaining
+        except (ValueError, TypeError):
+            # If there's an error parsing amounts, still allow adding a line
+            return True, 0
 
     # Function to add a credit line
     def add_credit_line(amount=None):
@@ -894,7 +914,8 @@ def add_transaction_wizard(parent, table_view):
         # Store the filter to prevent garbage collection
         line_data['account_filter'] = account_filter
         # Set tab order to go from date to Add button
-        wizard.setTabOrder(line_date_edit, add_credit_btn)
+        wizard.setTabOrder(line_date_edit, remove_btn)
+        wizard.setTabOrder(remove_btn, add_credit_btn)
 
         return line_data
 
@@ -904,6 +925,8 @@ def add_transaction_wizard(parent, table_view):
             credit_line_widgets.remove(line_data)
             line_data['widget'].deleteLater()
             update_credit_total()
+            # Move focus to the add button after removal
+            add_credit_btn.setFocus()
 
     # Function to add a debit line
     def add_debit_line(amount=None):
@@ -1024,7 +1047,8 @@ def add_transaction_wizard(parent, table_view):
         line_data['account_filter'] = account_filter
 
         # Set tab order to go from date to Add button
-        wizard.setTabOrder(line_date_edit, add_debit_btn)
+        wizard.setTabOrder(line_date_edit, remove_btn)
+        wizard.setTabOrder(remove_btn, add_debit_btn)
 
         return line_data
 
@@ -1034,34 +1058,9 @@ def add_transaction_wizard(parent, table_view):
             debit_line_widgets.remove(line_data)
             line_data['widget'].deleteLater()
             update_debit_total()
+            # Move focus to the add button after removal
+            add_debit_btn.setFocus()
 
-    # Function to update classification options based on account
-    # def update_classification_combo(combo, account_name):
-    #     combo.clear()
-    #     account_id = db.get_account_id(account_name)
-    #     classifications = db.get_classifications_for_account(account_id)
-    #
-    #     # Reset to non-editable first
-    #     combo.setEditable(False)
-    #
-    #     # Only show "(None)" when there are NO classifications available
-    #     if not classifications:
-    #         combo.addItem("(None)")
-    #     else:
-    #         # Otherwise just show the actual classifications
-    #         for classification in classifications:
-    #             combo.addItem(classification[1])
-    #
-    #     # Make the combo editable with autocompletion if there are classifications
-    #     if classifications:
-    #         items = [c[1] for c in classifications]
-    #         make_combo_editable(combo, items)
-    #
-    #         # Show dropdown immediately
-    #         combo.showPopup()
-
-
-    # Function to update credit total
 
     def update_classification_combo(combo, account_name):
         combo.clear()
@@ -1108,63 +1107,23 @@ def add_transaction_wizard(parent, table_view):
 
                 combo.lineEdit().installEventFilter(FocusEventFilter(on_focus))
 
-    def update_credit_total():
-        try:
-            total_transaction_amount = float(total_amount_edit.text() or 0)
-            credit_total = 0
+    def add_credit_line_with_check():
+        current_total = sum(float(line['amount'].text() or 0) for line in credit_line_widgets)
+        can_add, remaining = can_add_new_line(total_amount_edit.text(), current_total, wizard)
+        if can_add:
+            line_data = add_credit_line(remaining)
+            line_data['account'].setFocus()
 
-            for line in credit_line_widgets:
-                try:
-                    credit_total += float(line['amount'].text() or 0)
-                except (ValueError, TypeError):
-                    pass
+    add_credit_btn.clicked.connect(add_credit_line_with_check)
 
-            credit_total_label.setText(f"Credit Total: {credit_total:.2f}")
+    def add_debit_line_with_check():
+        current_total = sum(float(line['amount'].text() or 0) for line in debit_line_widgets)
+        can_add, remaining = can_add_new_line(total_amount_edit.text(), current_total, wizard)
+        if can_add:
+            line_data = add_debit_line(remaining)
+            line_data['account'].setFocus()
 
-            # Highlight if exceeds total amount
-            if credit_total > total_transaction_amount:
-                credit_total_label.setStyleSheet("QLabel { color: red; font-weight: bold; }")
-                for line in credit_line_widgets:
-                    line['amount'].setStyleSheet("QLineEdit { background-color: #FFE0E0; }")
-            else:
-                credit_total_label.setStyleSheet("")
-                for line in credit_line_widgets:
-                    line['amount'].setStyleSheet("")
-        except (ValueError, TypeError):
-            pass
-
-    # Function to update debit total
-    def update_debit_total():
-        try:
-            total_transaction_amount = float(total_amount_edit.text() or 0)
-            debit_total = 0
-
-            for line in debit_line_widgets:
-                try:
-                    debit_total += float(line['amount'].text() or 0)
-                except (ValueError, TypeError):
-                    pass
-
-            debit_total_label.setText(f"Debit Total: {debit_total:.2f}")
-
-            # Highlight if exceeds total amount
-            if debit_total > total_transaction_amount:
-                debit_total_label.setStyleSheet("QLabel { color: red; font-weight: bold; }")
-                for line in debit_line_widgets:
-                    line['amount'].setStyleSheet("QLineEdit { background-color: #FFE0E0; }")
-            else:
-                debit_total_label.setStyleSheet("")
-                for line in debit_line_widgets:
-                    line['amount'].setStyleSheet("")
-        except (ValueError, TypeError):
-            pass
-
-    # Connect events for adding lines
-    add_credit_btn.clicked.connect(lambda:
-                                   add_credit_line(update_credit_total()).get('account').setFocus())
-
-    add_debit_btn.clicked.connect(lambda:
-                                  add_debit_line(update_debit_total()).get('account').setFocus())
+    add_debit_btn.clicked.connect(add_debit_line_with_check)
 
     # Update date fields when main date changes
     def update_line_dates():
