@@ -228,6 +228,7 @@ def display_transactions(content_frame, toolbar):
     next_page_btn = QPushButton("Next")
     page_size_combo = QComboBox()
     page_size_combo.addItems(["20", "50", "100", "All"])
+    page_size_combo.setMinimumWidth(70)  # Add this line
 
     pagination_layout.addWidget(prev_page_btn)
     pagination_layout.addWidget(page_label)
@@ -392,13 +393,13 @@ def display_transactions(content_frame, toolbar):
     filter_action.triggered.connect(lambda: filter_transactions(content_frame, transactions_table))
     reset_filter_action.triggered.connect(lambda: reset_transaction_filters(content_frame, transactions_table))
 
-    # Load initial transaction data
-    page_size = page_size_combo.currentText()
-    if page_size == "All":
-        initial_page_size = None
-    else:
-        initial_page_size = int(page_size)
-    load_transactions(transactions_table, page=1, page_size=initial_page_size)
+    # # Load initial transaction data
+    # page_size = page_size_combo.currentText()
+    # if page_size == "All":
+    #     initial_page_size = None
+    # else:
+    #     initial_page_size = int(page_size)
+    # load_transactions(transactions_table, page=1, page_size=initial_page_size)
 
     def update_pagination_info():
         current_page = getattr(transactions_table, 'current_page', 1)
@@ -448,15 +449,28 @@ def display_transactions(content_frame, toolbar):
         load_transaction_lines(debit_table, transaction_id, is_debit=True)
         load_transaction_lines(credit_table, transaction_id, is_debit=False)
 
-        # Update summary counts
+        # Get pagination info for summary update
+        current_page = getattr(transactions_table, 'current_page', 1)
+        page_size = getattr(transactions_table, 'page_size', None)
+        filter_params = getattr(transactions_table, 'filter_params', None)
+        total_count = db.get_transaction_count(filter_params)
+
+        # Update summary counts with complete info
         update_summary_counts(transactions_table, debit_table, credit_table,
-                              transactions_count_label, credit_lines_count_label, debit_lines_count_label)
+                              transactions_count_label, credit_lines_count_label, debit_lines_count_label,
+                              total_count, page_size, current_page)
 
     # Store the function on the table_view for later reconnection
     transactions_table._on_transaction_selected = on_transaction_selected
 
-    # Connect selection change signal
-    transactions_table.selectionModel().selectionChanged.connect(on_transaction_selected)
+    # Connect selection change signal - Modified to handle None selectionModel
+    if transactions_table.selectionModel():
+        transactions_table.selectionModel().selectionChanged.connect(on_transaction_selected)
+    else:
+        # If selection model doesn't exist yet, use a short timer to try again
+        QTimer.singleShot(50,
+                          lambda: transactions_table.selectionModel().selectionChanged.connect(on_transaction_selected)
+                          if transactions_table.selectionModel() else None)
 
     # Set sensible initial sizes for the splitter
     splitter.setSizes([500, 300])
@@ -488,9 +502,7 @@ def load_transactions(table_view, page=1, page_size=None, filter_params=None, se
     on_transaction_selected = None
     if hasattr(table_view, '_on_transaction_selected'):
         on_transaction_selected = table_view._on_transaction_selected
-    # At the end of load_transactions function, add:
-    if hasattr(table_view, 'update_pagination_info'):
-        table_view.update_pagination_info()
+
 
     model = QStandardItemModel()
     model.setHorizontalHeaderLabels(["ID", "Date", "Description", "Amount", "Currency"])
@@ -553,10 +565,16 @@ def load_transactions(table_view, page=1, page_size=None, filter_params=None, se
     # Set the proxy model to the table view
     table_view.setModel(proxy_model)
 
-    # Reconnect the selection change signal
+    # Reconnect the selection change signal - Modified to handle None selectionModel
     if on_transaction_selected:
         table_view._on_transaction_selected = on_transaction_selected
-        table_view.selectionModel().selectionChanged.connect(on_transaction_selected)
+        # Only connect if the selection model exists
+        if table_view.selectionModel():
+            table_view.selectionModel().selectionChanged.connect(on_transaction_selected)
+        else:
+            # If selection model doesn't exist yet, use a short timer to try again
+            QTimer.singleShot(50, lambda: table_view.selectionModel().selectionChanged.connect(on_transaction_selected)
+            if table_view.selectionModel() else None)
 
     # Resize columns
     table_view.resizeColumnsToContents()
@@ -582,8 +600,9 @@ def load_transactions(table_view, page=1, page_size=None, filter_params=None, se
     table_view.sortByColumn(0, Qt.DescendingOrder)
     table_view.sortByColumn(1, Qt.DescendingOrder)
 
-    # Hide the ID column
-    #table_view.hideColumn(0)
+    # At the end of load_transactions function, add:
+    if hasattr(table_view, 'update_pagination_info'):
+        table_view.update_pagination_info()
 
 def get_transactions_with_summary(limit=20, offset=0, filter_params=None):
     """Get transactions from database with summary information"""
@@ -1507,7 +1526,7 @@ def reset_transaction_filters(parent, table_view):
     table_view.filter_params = None
 
     # Reset to first page with default page size
-    load_transactions(table_view, page=1, page_size=20)
+    load_transactions(table_view, page=1, page_size=None)
 
     # Update pagination display if the function is available
     if hasattr(table_view, 'update_pagination_info'):
@@ -1874,6 +1893,6 @@ def filter_transactions(parent, table_view):
 
         # Reload transactions with filter
         load_transactions(table_view, limit=None, filter_params=filter_params)
-    # At the end of load_transactions function, add:
-    if hasattr(table_view, 'update_pagination_info'):
-        table_view.update_pagination_info()
+        # At the end of load_transactions function, add:
+        if hasattr(table_view, 'update_pagination_info'):
+            table_view.update_pagination_info()
