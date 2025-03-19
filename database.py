@@ -577,6 +577,57 @@ class Database:
 
         return count
 
+    def get_transaction_by_id(self, id):
+        """Get a transaction by ID"""
+        self.cursor.execute("""
+            SELECT t.id, t.description, t.currency_id, c.name as currency_name
+            FROM transactions t
+            JOIN currency c ON t.currency_id = c.id
+            WHERE t.id = ?
+        """, (id,))
+        result = self.cursor.fetchone()
+        if result:
+            return {
+                'id': result[0],
+                'description': result[1],
+                'currency_id': result[2],
+                'currency_name': result[3]
+            }
+        return None
+
+    def get_transaction_lines_by_type(self, transaction_id, is_debit=True):
+        """Get transaction lines of a specific type (debit or credit)"""
+        query = """
+            SELECT tl.id, tl.account_id, a.name as account_name, 
+                   tl.debit, tl.credit, tl.date, tl.classification_id, 
+                   c.name as classification_name
+            FROM transaction_lines tl
+            JOIN accounts a ON tl.account_id = a.id
+            LEFT JOIN classifications c ON tl.classification_id = c.id
+            WHERE tl.transaction_id = ? AND 
+        """
+
+        if is_debit:
+            query += "tl.debit IS NOT NULL AND tl.debit > 0"
+        else:
+            query += "tl.credit IS NOT NULL AND tl.credit > 0"
+
+        self.cursor.execute(query, (transaction_id,))
+
+        results = []
+        for row in self.cursor.fetchall():
+            results.append({
+                'id': row[0],
+                'account_id': row[1],
+                'account_name': row[2],
+                'amount': row[3] if is_debit else row[4],
+                'date': row[5],
+                'classification_id': row[6],
+                'classification_name': row[7] if row[7] else None
+            })
+
+        return results
+
 # Initialize the database
 db = Database('finance.db')
 

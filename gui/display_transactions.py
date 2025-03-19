@@ -388,7 +388,7 @@ def display_transactions(content_frame, toolbar):
 
     # Connect actions for main transactions
     add_action.triggered.connect(lambda: add_transaction_wizard(content_frame, transactions_table))
-    edit_action.triggered.connect(lambda: edit_transaction(content_frame, transactions_table))
+    edit_action.triggered.connect(lambda: edit_transaction_wizard(content_frame, transactions_table))
     delete_action.triggered.connect(lambda: delete_transaction(content_frame, transactions_table))
     filter_action.triggered.connect(lambda: filter_transactions(content_frame, transactions_table))
     reset_filter_action.triggered.connect(lambda: reset_transaction_filters(content_frame, transactions_table))
@@ -786,14 +786,15 @@ def get_all_descriptions():
     cursor.execute("SELECT DISTINCT description FROM transactions")
     return [row[0] for row in cursor.fetchall()]
 
-def add_transaction_wizard(parent, table_view):
-    """Add a new transaction using a wizard format with 3 pages"""
+def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=None,
+                          transaction_data=None, credit_lines_data=None, debit_lines_data=None):
+    """Add or edit a transaction using a wizard format with 3 pages"""
 
     wizard = QWizard(parent)
-    wizard.setMinimumWidth(700)  # Adjust as needed
-    wizard.setWindowTitle("Add Transaction Wizard")
-    # Set the wizard style to Modern - this should help with white backgrounds
+    wizard.setMinimumWidth(700)
+    wizard.setWindowTitle("Add Transaction Wizard" if not edit_mode else "Edit Transaction Wizard")
     wizard.setWizardStyle(QWizard.ModernStyle)
+
     # Create a transparent pixmap for the banner/watermark
     transparent_pixmap = QPixmap()
     #transparent_pixmap.fill(Qt.transparent)
@@ -801,13 +802,16 @@ def add_transaction_wizard(parent, table_view):
     wizard.setPixmap(QWizard.BannerPixmap, transparent_pixmap)
     wizard.setPixmap(QWizard.LogoPixmap, transparent_pixmap)
 
+    # Store edit mode information
+    wizard.edit_mode = edit_mode
+    wizard.transaction_id = transaction_id
+
     # Page 1: Transaction Basic Information
     page1 = QWizardPage()
     page1.setTitle("Transaction Information")
     page1.setSubTitle("Enter the basic transaction details")
 
     layout1 = QVBoxLayout(page1)
-
     layout1.addStretch(1)
 
     # Description field
@@ -816,18 +820,22 @@ def add_transaction_wizard(parent, table_view):
     description_edit = QLineEdit()
     description_completer = QCompleter(get_recent_descriptions())
     description_completer.setCaseSensitivity(Qt.CaseInsensitive)
-    description_completer.setFilterMode(Qt.MatchContains)  # This allows matching anywhere in the text
+    description_completer.setFilterMode(Qt.MatchContains)
     description_edit.setCompleter(description_completer)
     desc_layout.addWidget(description_edit)
     layout1.addLayout(desc_layout)
 
+    # If editing, pre-fill description
+    if edit_mode and transaction_data:
+        description_edit.setText(transaction_data['description'])
+
     # Amount, Date and Currency fields
-    details_layout = QGridLayout()  # Change to grid layout for better control
+    details_layout = QGridLayout()
 
     details_layout.addWidget(QLabel("Total Amount:"), 0, 0)
     total_amount_edit = QLineEdit()
     total_amount_edit.setValidator(QDoubleValidator())
-    total_amount_edit.setMaximumWidth(150)  # Limit width
+    total_amount_edit.setMaximumWidth(150)
     details_layout.addWidget(total_amount_edit, 0, 1)
 
     details_layout.addWidget(QLabel("Date:"), 0, 2)
@@ -839,13 +847,47 @@ def add_transaction_wizard(parent, table_view):
     currency_combo = QComboBox()
     currencies = [curr[1] for curr in db.get_all_currencies()]
     currency_combo.addItems(currencies)
-    default_index = currencies.index("EGP") if "EGP" in currencies else 0
-    currency_combo.setCurrentIndex(default_index)
+
+    # If editing, pre-fill currency and calculate total
+    if edit_mode and transaction_data:
+        # Set currency
+        currency_index = currencies.index(transaction_data['currency_name']) if transaction_data[
+                                                                                    'currency_name'] in currencies else 0
+        currency_combo.setCurrentIndex(currency_index)
+
+        # Calculate total amount from transaction lines
+        total_amount = 0
+        if debit_lines_data:
+            for line in debit_lines_data:
+                total_amount += line['amount']
+
+        # Set the total amount
+        total_amount_edit.setText(f"{total_amount:.2f}")
+
+        # Find the earliest date in the transaction lines
+        earliest_date = None
+        all_lines = []
+        if credit_lines_data:
+            all_lines.extend(credit_lines_data)
+        if debit_lines_data:
+            all_lines.extend(debit_lines_data)
+
+        for line in all_lines:
+            line_date = line['date']
+            date_obj = datetime.datetime.strptime(line_date, "%Y-%m-%d").date()
+            if not earliest_date or date_obj < earliest_date:
+                earliest_date = date_obj
+
+        if earliest_date:
+            date_edit.setDate(QDate(earliest_date.year, earliest_date.month, earliest_date.day))
+    else:
+        # Default to EGP for new transactions
+        default_index = currencies.index("EGP") if "EGP" in currencies else 0
+        currency_combo.setCurrentIndex(default_index)
+
     details_layout.addWidget(currency_combo, 0, 5)
-
     layout1.addLayout(details_layout)
-
-    layout1.addStretch(1)  # Add at the end
+    layout1.addStretch(1)
 
     # Register fields with the wizard
     page1.registerField("description*", description_edit)
@@ -869,7 +911,6 @@ def add_transaction_wizard(parent, table_view):
     credit_scroll = QScrollArea()
     credit_scroll.setWidgetResizable(True)
     credit_scroll.setWidget(credit_lines_container)
-    #credit_scroll.setMinimumHeight(200)  # Adjust this value as needed
     layout2.addWidget(credit_scroll)
 
     # Add button and summary for credit lines
@@ -879,7 +920,7 @@ def add_transaction_wizard(parent, table_view):
 
     credit_total_label = QLabel("Credit Total: 0.00")
     buttons_layout.addWidget(credit_total_label)
-    transaction_total_credit_label = QLabel("Transaction Total: 0.00")  # Add transaction total label
+    transaction_total_credit_label = QLabel("Transaction Total: 0.00")
     buttons_layout.addWidget(transaction_total_credit_label)
     layout2.addLayout(buttons_layout)
 
@@ -895,12 +936,10 @@ def add_transaction_wizard(parent, table_view):
     debit_lines_layout = QVBoxLayout(debit_lines_container)
     debit_lines_layout.setContentsMargins(0, 0, 0, 0)
 
-
     # Scroll area for debit lines
     debit_scroll = QScrollArea()
     debit_scroll.setWidgetResizable(True)
     debit_scroll.setWidget(debit_lines_container)
-    #debit_scroll.setMinimumHeight(200)  # Adjust this value as needed
     layout3.addWidget(debit_scroll)
 
     # Add button and summary for debit lines
@@ -910,7 +949,7 @@ def add_transaction_wizard(parent, table_view):
 
     debit_total_label = QLabel("Debit Total: 0.00")
     debit_buttons_layout.addWidget(debit_total_label)
-    transaction_total_debit_label = QLabel("Transaction Total: 0.00")  # Add transaction total label
+    transaction_total_debit_label = QLabel("Transaction Total: 0.00")
     debit_buttons_layout.addWidget(transaction_total_debit_label)
     layout3.addLayout(debit_buttons_layout)
 
@@ -925,21 +964,20 @@ def add_transaction_wizard(parent, table_view):
     wizard.setOption(QWizard.HaveCustomButton1, True)
     wizard.setButtonText(QWizard.CustomButton1, "Add Another Transaction")
 
-    # Only show the button on the last page
+    # Show the custom button only on the last page
     def update_custom_button(page_id):
-        # Show the custom button only on the last page (index 2)
-        wizard.setOption(QWizard.HaveCustomButton1, page_id == 2)
+        # Only show Add Another button when creating new transactions, not when editing
+        show_add_another = page_id == 2 and not edit_mode
+        wizard.setOption(QWizard.HaveCustomButton1, show_add_another)
 
     wizard.currentIdChanged.connect(update_custom_button)
 
     # Connect the button to start a new transaction wizard
     def start_new_transaction():
-        # This will be called when CustomButton1 is clicked
         wizard.is_adding_another = True
-        # We need to accept the current wizard first
         wizard.accept()
 
-        # Show success message here BEFORE starting a new wizard
+        # Show success message
         QMessageBox.information(parent, "Success", "Transaction added successfully.")
 
         # Then start a new one
@@ -950,6 +988,76 @@ def add_transaction_wizard(parent, table_view):
     # Lists to track line widgets
     credit_line_widgets = []
     debit_line_widgets = []
+
+    # Pre-fill credit and debit lines if editing
+    if edit_mode:
+        # Pre-fill credit lines
+        if credit_lines_data:
+            for credit_line in credit_lines_data:
+                line_data = add_credit_line(credit_line['amount'])
+
+                # Set account
+                account_index = -1
+                for i in range(line_data['account'].count()):
+                    if line_data['account'].itemText(i) == credit_line['account_name']:
+                        account_index = i
+                        break
+
+                if account_index >= 0:
+                    line_data['account'].setCurrentIndex(account_index)
+
+                    # This will trigger update_classification_combo
+                    if credit_line['classification_name']:
+                        # Wait a moment for classifications to load
+                        QTimer.singleShot(50, lambda cl=line_data['classification'],
+                                                     name=credit_line['classification_name']:
+                        cl.setCurrentText(name))
+
+                # Set date
+                date_obj = datetime.datetime.strptime(credit_line['date'], "%Y-%m-%d").date()
+                line_data['date'].setDate(QDate(date_obj.year, date_obj.month, date_obj.day))
+
+                # Store original line ID for later use
+                line_data.original_line_id = credit_line['id']
+
+        # Pre-fill debit lines
+        if debit_lines_data:
+            for debit_line in debit_lines_data:
+                line_data = add_debit_line(debit_line['amount'])
+
+                # Set account
+                account_index = -1
+                for i in range(line_data['account'].count()):
+                    if line_data['account'].itemText(i) == debit_line['account_name']:
+                        account_index = i
+                        break
+
+                if account_index >= 0:
+                    line_data['account'].setCurrentIndex(account_index)
+
+                    # This will trigger update_classification_combo
+                    if debit_line['classification_name']:
+                        # Wait a moment for classifications to load
+                        QTimer.singleShot(50, lambda cl=line_data['classification'],
+                                                     name=debit_line['classification_name']:
+                        cl.setCurrentText(name))
+
+                # Set date
+                date_obj = datetime.datetime.strptime(debit_line['date'], "%Y-%m-%d").date()
+                line_data['date'].setDate(QDate(date_obj.year, date_obj.month, date_obj.day))
+
+                # Store original line ID for later use
+                line_data.original_line_id = debit_line['id']
+
+    # Function to update transaction total labels when main amount changes
+    def update_transaction_totals():
+        try:
+            total_amount = float(total_amount_edit.text() or 0)
+            transaction_total_credit_label.setText(f"Transaction Total: {total_amount:.2f}")
+            transaction_total_debit_label.setText(f"Transaction Total: {total_amount:.2f}")
+        except (ValueError, TypeError):
+            transaction_total_credit_label.setText("Transaction Total: 0.00")
+            transaction_total_debit_label.setText("Transaction Total: 0.00")
 
     # At the end of your wizard setup:
     def on_current_id_changed(current_id):
@@ -975,62 +1083,8 @@ def add_transaction_wizard(parent, table_view):
                 line_data = add_debit_line()
                 line_data['account'].setFocus()
 
-    # Function to update transaction total labels when main amount changes
-    def update_transaction_totals():
-        try:
-            total_amount = float(total_amount_edit.text() or 0)
-            transaction_total_credit_label.setText(f"Transaction Total: {total_amount:.2f}")
-            transaction_total_debit_label.setText(f"Transaction Total: {total_amount:.2f}")
-        except (ValueError, TypeError):
-            transaction_total_credit_label.setText("Transaction Total: 0.00")
-            transaction_total_debit_label.setText("Transaction Total: 0.00")
-
     # Connect to total amount changes
     total_amount_edit.textChanged.connect(update_transaction_totals)
-
-    wizard.currentIdChanged.connect(on_current_id_changed)
-
-    # Set tab order for first page
-    wizard.setTabOrder(description_edit, total_amount_edit)
-    wizard.setTabOrder(total_amount_edit, date_edit)
-    wizard.setTabOrder(date_edit, currency_combo)
-
-    # Custom key event handler for pages
-    def handle_key_press(obj, event):
-        if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
-            # If on the last page, handle differently
-            if wizard.currentId() == 2:  # Assuming 3 pages (0, 1, 2)
-                if event.modifiers() & Qt.ControlModifier:
-                    # Ctrl+Enter to finish and add new transaction
-                    wizard.button(QWizard.FinishButton).click()
-                    add_transaction_wizard(parent, table_view)
-                else:
-                    # Just finish
-                    wizard.button(QWizard.FinishButton).click()
-            else:
-                # On other pages, proceed to next
-                wizard.button(QWizard.NextButton).click()
-            return True
-        return False
-
-    # Install event filter on all input widgets
-    def install_event_filter(widget, filter_func):
-        class KeyPressFilter(QObject):
-            def eventFilter(self, obj, event):
-                if event.type() == QEvent.KeyPress:
-                    return filter_func(obj, event)
-                return False
-
-        filter_obj = KeyPressFilter(widget)
-        widget.installEventFilter(filter_obj)
-        return filter_obj
-
-    # Apply to all editable widgets
-    key_filters = []
-    key_filters.append(install_event_filter(description_edit, handle_key_press))
-    key_filters.append(install_event_filter(total_amount_edit, handle_key_press))
-    key_filters.append(install_event_filter(date_edit, handle_key_press))
-    key_filters.append(install_event_filter(currency_combo, handle_key_press))
 
     # Function to update credit total
     def update_credit_total():
@@ -1125,13 +1179,14 @@ def add_transaction_wizard(parent, table_view):
     def add_credit_line(amount=None):
         """Wrapper function that calls add_transaction_line with is_debit=False"""
         return add_transaction_line(is_debit=False, amount=amount)
+
     # Function to add a debit line
     def add_debit_line(amount=None):
         """Wrapper function that calls add_transaction_line with is_debit=True"""
         return add_transaction_line(is_debit=True, amount=amount)
 
     # Add this new combined function
-    def add_transaction_line(is_debit=True, amount=None):
+    def add_transaction_line(is_debit=True, amount=None, line_data=None):
         """Add a credit or debit line to the transaction wizard"""
         line_widget = QWidget()
         line_layout = QVBoxLayout(line_widget)
@@ -1206,7 +1261,7 @@ def add_transaction_wizard(parent, table_view):
         lines_layout.addWidget(line_widget)
 
         # Track the widget and its components
-        line_data = {
+        line_data_dict = {
             'widget': line_widget,
             'account': account_combo,
             'classification': classification_combo,
@@ -1214,7 +1269,12 @@ def add_transaction_wizard(parent, table_view):
             'date': line_date_edit,
             'remove': remove_btn
         }
-        line_widgets_list.append(line_data)
+
+        # If this is an existing line from edit mode, store the original ID
+        if line_data and 'id' in line_data:
+            line_data_dict['original_line_id'] = line_data['id']
+
+        line_widgets_list.append(line_data_dict)
 
         # Connect signals
         update_total_func = update_debit_total if is_debit else update_credit_total
@@ -1222,9 +1282,9 @@ def add_transaction_wizard(parent, table_view):
 
         # Connect remove button to appropriate function
         if is_debit:
-            remove_btn.clicked.connect(lambda: remove_debit_line(line_data))
+            remove_btn.clicked.connect(lambda: remove_debit_line(line_data_dict))
         else:
-            remove_btn.clicked.connect(lambda: remove_credit_line(line_data))
+            remove_btn.clicked.connect(lambda: remove_credit_line(line_data_dict))
 
         # Update classification and move focus when account is selected
         def on_account_selected(index):
@@ -1259,14 +1319,41 @@ def add_transaction_wizard(parent, table_view):
             account_combo.lineEdit().installEventFilter(account_filter)
 
         # Store the filter to prevent garbage collection
-        line_data['account_filter'] = account_filter
+        line_data_dict['account_filter'] = account_filter
 
         # Set tab order appropriately
         add_btn = add_debit_btn if is_debit else add_credit_btn
         wizard.setTabOrder(line_date_edit, remove_btn)
         wizard.setTabOrder(remove_btn, add_btn)
 
-        return line_data
+        # Pre-fill the line if we are editing and have line data
+        if line_data:
+            # Set account if provided
+            if 'account_name' in line_data:
+                account_index = -1
+                for i in range(account_combo.count()):
+                    if account_combo.itemText(i) == line_data['account_name']:
+                        account_index = i
+                        break
+
+                if account_index >= 0:
+                    account_combo.setCurrentIndex(account_index)
+                    # This will trigger updating the classification combo
+
+            # Set classification if provided
+            if 'classification_name' in line_data and line_data['classification_name']:
+                # We need to wait for the account selection to populate classifications
+                QTimer.singleShot(100, lambda: classification_combo.setCurrentText(line_data['classification_name']))
+
+            # Set date if provided
+            if 'date' in line_data:
+                try:
+                    date_obj = datetime.datetime.strptime(line_data['date'], "%Y-%m-%d").date()
+                    line_date_edit.setDate(QDate(date_obj.year, date_obj.month, date_obj.day))
+                except:
+                    pass
+
+        return line_data_dict
 
     # Function to remove a credit line
     def remove_credit_line(line_data):
@@ -1277,8 +1364,6 @@ def add_transaction_wizard(parent, table_view):
             # Move focus to the add button after removal
             add_credit_btn.setFocus()
 
-
-
     # Function to remove a debit line
     def remove_debit_line(line_data):
         if line_data in debit_line_widgets:
@@ -1287,7 +1372,6 @@ def add_transaction_wizard(parent, table_view):
             update_debit_total()
             # Move focus to the add button after removal
             add_debit_btn.setFocus()
-
 
     def update_classification_combo(combo, account_name):
         combo.clear()
@@ -1362,77 +1446,61 @@ def add_transaction_wizard(parent, table_view):
 
     date_edit.dateChanged.connect(update_line_dates)
 
-    # Add default lines when pages are shown
-    def on_current_id_changed(current_id):
-        if current_id == 1 and not credit_line_widgets:  # Credit page
-            try:
-                total_amount = float(total_amount_edit.text() or 0)
-                if total_amount > 0:
-                    line_data = add_credit_line(total_amount)
-                    # Set focus to the line edit, not the combo itself
+    # Now pre-fill the credit and debit lines if in edit mode
+    if edit_mode:
+        # If we're editing, we don't need to add default lines on page changes
+        on_current_id_changed_edit = lambda id: None
+        wizard.currentIdChanged.connect(on_current_id_changed_edit)
+
+        # Pre-fill credit lines
+        if credit_lines_data:
+            for line in credit_lines_data:
+                add_credit_line(amount=line['amount'], line_data=line)
+            # Update the credit total
+            update_credit_total()
+
+        # Pre-fill debit lines
+        if debit_lines_data:
+            for line in debit_lines_data:
+                add_debit_line(amount=line['amount'], line_data=line)
+            # Update the debit total
+            update_debit_total()
+    else:
+        # For new transactions, add default lines when pages are shown
+        def on_current_id_changed(current_id):
+            if current_id == 1 and not credit_line_widgets:  # Credit page
+                try:
+                    total_amount = float(total_amount_edit.text() or 0)
+                    if total_amount > 0:
+                        line_data = add_credit_line(total_amount)
+                        # Set focus to the line edit, not the combo itself
+                        if line_data['account'].lineEdit():
+                            line_data['account'].lineEdit().setFocus()
+                        line_data['amount'].textChanged.emit(line_data['amount'].text())
+                except (ValueError, TypeError):
+                    line_data = add_credit_line()
+                    if line_data['account'].lineEdit():
+                        line_data['account'].lineEdit().setFocus()
+            elif current_id == 2 and not debit_line_widgets:  # Debit page
+                try:
+                    total_amount = float(total_amount_edit.text() or 0)
+                    if total_amount > 0:
+                        line_data = add_debit_line(total_amount)
+                        # Set focus to the line edit, not the combo itself
+                        if line_data['account'].lineEdit():
+                            line_data['account'].lineEdit().setFocus()
+                        line_data['amount'].textChanged.emit(line_data['amount'].text())
+                except (ValueError, TypeError):
+                    line_data = add_debit_line()
                     if line_data['account'].lineEdit():
                         line_data['account'].lineEdit().setFocus()
 
-                    line_data['amount'].textChanged.emit(line_data['amount'].text())
-            except (ValueError, TypeError):
-                line_data = add_credit_line()
-                if line_data['account'].lineEdit():
-                    line_data['account'].lineEdit().setFocus()
-        elif current_id == 2 and not debit_line_widgets:  # Debit page
-            try:
-                total_amount = float(total_amount_edit.text() or 0)
-                if total_amount > 0:
-                    line_data = add_debit_line(total_amount)
-                    # Set focus to the line edit, not the combo itself
-                    if line_data['account'].lineEdit():
-                        line_data['account'].lineEdit().setFocus()
+        wizard.currentIdChanged.connect(on_current_id_changed)
 
-                    line_data['amount'].textChanged.emit(line_data['amount'].text())
-            except (ValueError, TypeError):
-                line_data = add_debit_line()
-                if line_data['account'].lineEdit():
-                    line_data['account'].lineEdit().setFocus()
+    # Update transaction totals initially
+    update_transaction_totals()
 
-    wizard.currentIdChanged.connect(on_current_id_changed)
-
-    # Final validation before accepting
-    def validate_before_finish():
-        try:
-            # Calculate totals
-            credit_total = 0
-            for line in credit_line_widgets:
-                try:
-                    credit_total += float(line['amount'].text() or 0)
-                except (ValueError, TypeError):
-                    pass
-
-            debit_total = 0
-            for line in debit_line_widgets:
-                try:
-                    debit_total += float(line['amount'].text() or 0)
-                except (ValueError, TypeError):
-                    pass
-
-            # Check if transaction is balanced
-            if abs(credit_total - debit_total) > 0.01:
-                QMessageBox.warning(wizard, "Unbalanced Transaction",
-                                    f"Transaction is not balanced.\nCredit: {credit_total:.2f}\nDebit: {debit_total:.2f}")
-                return False
-
-            # Ensure we have at least one credit and one debit line
-            if not credit_line_widgets or not debit_line_widgets:
-                QMessageBox.warning(wizard, "Incomplete Transaction",
-                                    "At least one credit and one debit line are required.")
-                return False
-
-            return True
-        except Exception as e:
-            QMessageBox.critical(wizard, "Error", f"Validation error: {str(e)}")
-            return False
-
-    wizard.button(QWizard.FinishButton).clicked.connect(validate_before_finish)
-
-    # Execute the wizard
+    # Replace the existing save section at the end of add_transaction_wizard
     if wizard.exec_() == QWizard.Accepted:
         try:
             # Retrieve data from wizard
@@ -1459,7 +1527,13 @@ def add_transaction_wizard(parent, table_view):
                         if classification:
                             classification_id = classification[0]
 
+                    # Store original line ID if this is an edit and we have the line data
+                    original_line_id = None
+                    if hasattr(line, 'original_line_id'):
+                        original_line_id = line.original_line_id
+
                     credit_lines.append({
+                        'id': original_line_id,  # None for new lines
                         'account_id': account_id,
                         'amount': amount,
                         'date': line_date,
@@ -1468,7 +1542,7 @@ def add_transaction_wizard(parent, table_view):
                 except (ValueError, TypeError):
                     pass
 
-            # Prepare debit lines data
+            # Prepare debit lines data (similar to credit lines)
             debit_lines = []
             for line in debit_line_widgets:
                 try:
@@ -1486,7 +1560,13 @@ def add_transaction_wizard(parent, table_view):
                         if classification:
                             classification_id = classification[0]
 
+                    # Store original line ID if this is an edit and we have the line data
+                    original_line_id = None
+                    if hasattr(line, 'original_line_id'):
+                        original_line_id = line.original_line_id
+
                     debit_lines.append({
+                        'id': original_line_id,  # None for new lines
                         'account_id': account_id,
                         'amount': amount,
                         'date': line_date,
@@ -1506,15 +1586,31 @@ def add_transaction_wizard(parent, table_view):
                 raise ValueError("At least one credit and one debit line are required")
 
             # Save transaction and lines
-            new_transaction_id = save_complete_transaction(
-                description,
-                currency_id,
-                credit_lines,
-                debit_lines
-            )
+            if wizard.edit_mode and wizard.transaction_id:
+                # Update existing transaction
+                update_complete_transaction(
+                    wizard.transaction_id,
+                    description,
+                    currency_id,
+                    credit_lines,
+                    debit_lines,
+                    credit_lines_data,  # Pass original data for comparison
+                    debit_lines_data
+                )
+                success_message = "Transaction updated successfully."
+            else:
+                # Save as new transaction
+                new_transaction_id = save_complete_transaction(
+                    description,
+                    currency_id,
+                    credit_lines,
+                    debit_lines
+                )
+                wizard.transaction_id = new_transaction_id
+                success_message = "Transaction added successfully."
 
-            # Reload transactions and select the new one
-            load_transactions(table_view, select_transaction_id=new_transaction_id)
+            # Reload transactions and select the transaction
+            load_transactions(table_view, select_transaction_id=wizard.transaction_id)
 
             # Force transaction selection update
             if hasattr(table_view, '_on_transaction_selected'):
@@ -1524,10 +1620,136 @@ def add_transaction_wizard(parent, table_view):
                 # Skip showing success message - it will be shown before the next wizard opens
                 pass
             else:
-                QMessageBox.information(parent, "Success", "Transaction added successfully.")
+                QMessageBox.information(parent, "Success", success_message)
         except Exception as e:
-            QMessageBox.critical(parent, "Error", f"Failed to add transaction: {str(e)}")
+            QMessageBox.critical(parent, "Error",
+                                 f"Failed to {'update' if wizard.edit_mode else 'add'} transaction: {str(e)}")
 
+#
+#
+#     # Execute the wizard
+#     if wizard.exec_() == QWizard.Accepted:
+#         try:
+#             # Retrieve data from wizard
+#             description = description_edit.text()
+#             total_amount = float(total_amount_edit.text() or 0)
+#             date_value = date_edit.date().toString("yyyy-MM-dd")
+#             currency_id = db.get_currency_id(currency_combo.currentText())
+#
+#             # Prepare credit lines data
+#             credit_lines = []
+#             for line in credit_line_widgets:
+#                 try:
+#                     amount = float(line['amount'].text() or 0)
+#                     if amount <= 0:
+#                         continue  # Skip lines with zero or negative amounts
+#
+#                     account_id = db.get_account_id(line['account'].currentText())
+#                     line_date = line['date'].date().toString("yyyy-MM-dd")
+#                     classification_name = line['classification'].currentText()
+#                     classification_id = None
+#
+#                     if classification_name != "(None)":
+#                         classification = db.get_classification_by_name(classification_name)
+#                         if classification:
+#                             classification_id = classification[0]
+#
+#                     credit_lines.append({
+#                         'account_id': account_id,
+#                         'amount': amount,
+#                         'date': line_date,
+#                         'classification_id': classification_id
+#                     })
+#                 except (ValueError, TypeError):
+#                     pass
+#
+#             # Prepare debit lines data
+#             debit_lines = []
+#             for line in debit_line_widgets:
+#                 try:
+#                     amount = float(line['amount'].text() or 0)
+#                     if amount <= 0:
+#                         continue  # Skip lines with zero or negative amounts
+#
+#                     account_id = db.get_account_id(line['account'].currentText())
+#                     line_date = line['date'].date().toString("yyyy-MM-dd")
+#                     classification_name = line['classification'].currentText()
+#                     classification_id = None
+#
+#                     if classification_name != "(None)":
+#                         classification = db.get_classification_by_name(classification_name)
+#                         if classification:
+#                             classification_id = classification[0]
+#
+#                     debit_lines.append({
+#                         'account_id': account_id,
+#                         'amount': amount,
+#                         'date': line_date,
+#                         'classification_id': classification_id
+#                     })
+#                 except (ValueError, TypeError):
+#                     pass
+#
+#             # Final verification
+#             credit_total = sum(line['amount'] for line in credit_lines)
+#             debit_total = sum(line['amount'] for line in debit_lines)
+#
+#             if abs(credit_total - debit_total) > 0.01:
+#                 raise ValueError(f"Transaction is not balanced. Credit: {credit_total:.2f}, Debit: {debit_total:.2f}")
+#
+#             if not credit_lines or not debit_lines:
+#                 raise ValueError("At least one credit and one debit line are required")
+#
+#             # Save transaction and lines
+#             new_transaction_id = save_complete_transaction(
+#                 description,
+#                 currency_id,
+#                 credit_lines,
+#                 debit_lines
+#             )
+#
+#             # Reload transactions and select the new one
+#             load_transactions(table_view, select_transaction_id=new_transaction_id)
+#
+#             # Force transaction selection update
+#             if hasattr(table_view, '_on_transaction_selected'):
+#                 table_view._on_transaction_selected()
+#
+#             if hasattr(wizard, 'is_adding_another') and wizard.is_adding_another:
+#                 # Skip showing success message - it will be shown before the next wizard opens
+#                 pass
+#             else:
+#                 QMessageBox.information(parent, "Success", "Transaction added successfully.")
+#         except Exception as e:
+#             QMessageBox.critical(parent, "Error", f"Failed to add transaction: {str(e)}")
+#
+#
+
+def edit_transaction_wizard(parent, table_view):
+    """Edit an existing transaction using the same wizard as for adding"""
+    row_data = get_selected_row_data(table_view)
+    if not row_data:
+        QMessageBox.warning(parent, "Warning", "Please select a transaction to edit.")
+        return
+
+    transaction_id = int(row_data["ID"])
+
+    # Get transaction details
+    transaction_details = db.get_transaction_by_id(transaction_id)
+    if not transaction_details:
+        QMessageBox.warning(parent, "Error", "Could not retrieve transaction details.")
+        return
+
+    # Get transaction lines
+    credit_lines = db.get_transaction_lines_by_type(transaction_id, is_debit=False)
+    debit_lines = db.get_transaction_lines_by_type(transaction_id, is_debit=True)
+
+    # Now call the modified add_transaction_wizard with edit mode
+    add_transaction_wizard(parent, table_view, edit_mode=True,
+                           transaction_id=transaction_id,
+                           transaction_data=transaction_details,
+                           credit_lines_data=credit_lines,
+                           debit_lines_data=debit_lines)
 
 # Define the function
 def reset_transaction_filters(parent, table_view):
@@ -1544,6 +1766,9 @@ def reset_transaction_filters(parent, table_view):
         # Inform the user
         QMessageBox.information(parent, "Filters Reset", "All transaction filters have been reset.")
 
+
+
+# After this function in display_transactions.py
 def save_complete_transaction(description, currency_id, credit_lines, debit_lines):
     """Save a complete transaction with all its lines in one operation"""
     try:
@@ -1583,6 +1808,96 @@ def save_complete_transaction(description, currency_id, credit_lines, debit_line
         # Rollback on error
         db.rollback_transaction()
         raise e
+
+# Add the update_complete_transaction function right here
+def update_complete_transaction(transaction_id, description, currency_id,
+                               credit_lines, debit_lines,
+                               original_credit_lines=None, original_debit_lines=None):
+    """Update a complete transaction with all its lines"""
+    try:
+        # Start a transaction
+        db.begin_transaction()
+
+        # Update transaction record
+        db.update_transaction(transaction_id, description, currency_id)
+
+        # Track which original lines have been processed
+        processed_credit_line_ids = set()
+        processed_debit_line_ids = set()
+
+        # Create sets of original line IDs for quick lookup
+        original_credit_ids = {line['id'] for line in original_credit_lines} if original_credit_lines else set()
+        original_debit_ids = {line['id'] for line in original_debit_lines} if original_debit_lines else set()
+
+        # Process credit lines
+        for line in credit_lines:
+            if line.get('id') and line['id'] in original_credit_ids:
+                # Update existing line
+                db.update_transaction_line(
+                    line['id'],
+                    line['account_id'],
+                    debit=None,
+                    credit=line['amount'],
+                    date=line['date'],
+                    classification_id=line['classification_id']
+                )
+                processed_credit_line_ids.add(line['id'])
+            else:
+                # Insert new line
+                db.insert_transaction_line(
+                    transaction_id,
+                    line['account_id'],
+                    debit=None,
+                    credit=line['amount'],
+                    date=line['date'],
+                    classification_id=line['classification_id']
+                )
+
+        # Process debit lines
+        for line in debit_lines:
+            if line.get('id') and line['id'] in original_debit_ids:
+                # Update existing line
+                db.update_transaction_line(
+                    line['id'],
+                    line['account_id'],
+                    debit=line['amount'],
+                    credit=None,
+                    date=line['date'],
+                    classification_id=line['classification_id']
+                )
+                processed_debit_line_ids.add(line['id'])
+            else:
+                # Insert new line
+                db.insert_transaction_line(
+                    transaction_id,
+                    line['account_id'],
+                    debit=line['amount'],
+                    credit=None,
+                    date=line['date'],
+                    classification_id=line['classification_id']
+                )
+
+        # Delete any original lines that weren't updated (they were removed)
+        if original_credit_lines:
+            for line in original_credit_lines:
+                if line['id'] not in processed_credit_line_ids:
+                    db.delete_transaction_line(line['id'])
+
+        if original_debit_lines:
+            for line in original_debit_lines:
+                if line['id'] not in processed_debit_line_ids:
+                    db.delete_transaction_line(line['id'])
+
+        # Commit transaction
+        db.commit_transaction()
+
+        return transaction_id
+    except Exception as e:
+        # Rollback on error
+        db.rollback_transaction()
+        raise e
+
+
 
 def edit_transaction(parent, table_view):
     """Edit an existing transaction"""
