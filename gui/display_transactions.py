@@ -805,6 +805,9 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
     # Store edit mode information
     wizard.edit_mode = edit_mode
     wizard.transaction_id = transaction_id
+    # Add properties to store line data
+    wizard.stored_credit_lines = credit_lines_data
+    wizard.stored_debit_lines = debit_lines_data
 
     # Page 1: Transaction Basic Information
     page1 = QWizardPage()
@@ -885,6 +888,95 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
             if current_id == 0 and edit_mode:  # We're on page 1 (index 0)
                 # Re-run our validation to fix the Next button
                 validate_wizard_fields()
+
+        def on_page_changed(page_id):
+            if page_id == 1 and edit_mode:  # Credit page
+                # Only do this in edit mode
+                QTimer.singleShot(100, populate_credit_lines)
+            elif page_id == 2 and edit_mode:  # Debit page
+                # Only do this in edit mode
+                QTimer.singleShot(100, populate_debit_lines)
+
+        wizard.currentIdChanged.connect(on_page_changed)
+
+        # Now add these functions inside add_transaction_wizard:
+        def populate_credit_lines():
+            # Clear any existing credit lines first
+            for widget in credit_line_widgets:
+                widget['widget'].deleteLater()
+            credit_line_widgets.clear()
+
+            # Add stored credit lines
+            if wizard.stored_credit_lines:
+                for line in wizard.stored_credit_lines:
+                    line_data = add_credit_line(amount=line['amount'])
+
+                    # Directly set values without triggering signals
+                    line_data['account'].blockSignals(True)
+                    line_data['account'].setCurrentText(line['account_name'])
+                    line_data['account'].blockSignals(False)
+
+                    # Now manually set up classifications
+                    account_id = line['account_id']
+                    classifications = db.get_classifications_for_account(account_id)
+
+                    line_data['classification'].blockSignals(True)
+                    line_data['classification'].clear()
+
+                    if classifications:
+                        for classification in classifications:
+                            line_data['classification'].addItem(classification[1])
+
+                        line_data['classification'].setEditable(True)
+
+                        if line.get('classification_name'):
+                            line_data['classification'].setCurrentText(line['classification_name'])
+                    else:
+                        line_data['classification'].addItem("(None)")
+
+                    line_data['classification'].blockSignals(False)
+
+                # Update totals
+                update_credit_total()
+
+        def populate_debit_lines():
+            # Clear any existing debit lines first
+            for widget in debit_line_widgets:
+                widget['widget'].deleteLater()
+            debit_line_widgets.clear()
+
+            # Add stored debit lines
+            if wizard.stored_debit_lines:
+                for line in wizard.stored_debit_lines:
+                    line_data = add_debit_line(amount=line['amount'])
+
+                    # Directly set values without triggering signals
+                    line_data['account'].blockSignals(True)
+                    line_data['account'].setCurrentText(line['account_name'])
+                    line_data['account'].blockSignals(False)
+
+                    # Now manually set up classifications
+                    account_id = line['account_id']
+                    classifications = db.get_classifications_for_account(account_id)
+
+                    line_data['classification'].blockSignals(True)
+                    line_data['classification'].clear()
+
+                    if classifications:
+                        for classification in classifications:
+                            line_data['classification'].addItem(classification[1])
+
+                        line_data['classification'].setEditable(True)
+
+                        if line.get('classification_name'):
+                            line_data['classification'].setCurrentText(line['classification_name'])
+                    else:
+                        line_data['classification'].addItem("(None)")
+
+                    line_data['classification'].blockSignals(False)
+
+                # Update totals
+                update_debit_total()
 
         # Connect to page changed signal
         wizard.currentIdChanged.connect(fix_back_button_navigation)
@@ -1311,88 +1403,47 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
 
         # Pre-fill the line if we are editing and have line data
         if line_data:
-            # Store the account name first - important to do this before any setCurrentIndex calls
-            account_name = line_data.get('account_name', '')
-            classification_name = line_data.get('classification_name', '')
+            # We'll use direct setting instead of trying to find indices
 
-            # Set account if provided
-            if 'account_name':
-                # Find the account index
-                account_index = -1
-                for i in range(account_combo.count()):
-                    if account_combo.itemText(i) == account_name:
-                        account_index = i
-                        break
+            # Set account directly
+            if 'account_name' in line_data and line_data['account_name']:
+                # Block signals during setup
+                account_combo.blockSignals(True)
+                account_combo.setCurrentText(line_data['account_name'])
+                account_combo.blockSignals(False)
 
-                if account_index >= 0:
-                    # Temporarily disconnect signals to prevent classification changes
-                    if hasattr(account_combo, 'currentIndexChanged'):
-                        account_combo.currentIndexChanged.disconnect()
-
-                    # Set the account
-                    account_combo.setCurrentIndex(account_index)
-
-                    # Now manually update classifications
-                    # This will be called after the account is set
-                    QTimer.singleShot(100, lambda: set_classification_after_account(
-                        classification_combo,
-                        db.get_account_id(account_name),
-                        classification_name
-                    ))
-
-            # Set date if provided
-            if 'date' in line_data:
-                try:
-                    date_obj = datetime.datetime.strptime(line_data['date'], "%Y-%m-%d").date()
-                    line_date_edit.setDate(QDate(date_obj.year, date_obj.month, date_obj.day))
-                except:
-                    pass
-
-            # Add this function right before or after add_transaction_wizard:
-
-            def update_classification_for_edit(account_name, combo, target_classification):
-                """Special function to update classification combo when editing"""
-                combo.clear()
-                account_id = db.get_account_id(account_name)
+                # Set classifications options for this account
+                account_id = line_data['account_id']
                 classifications = db.get_classifications_for_account(account_id)
 
-                # Only show "(None)" when there are NO classifications available
-                if not classifications:
-                    combo.addItem("(None)")
-                else:
+                # Setup classification combo
+                classification_combo.blockSignals(True)
+                classification_combo.clear()
+
+                if classifications:
                     # Add all classifications
                     for classification in classifications:
-                        combo.addItem(classification[1])
+                        classification_combo.addItem(classification[1])
 
-                # Make the combo editable with autocompletion if there are classifications
-                if classifications:
-                    items = [c[1] for c in classifications]
-                    combo.setEditable(True)
-                    combo.setInsertPolicy(QComboBox.NoInsert)
+                    # Make editable if needed
+                    classification_combo.setEditable(True)
+                    classification_combo.setInsertPolicy(QComboBox.NoInsert)
 
-                    # Create a completer
-                    completer = QCompleter(items, combo)
-                    completer.setCaseSensitivity(Qt.CaseInsensitive)
-                    completer.setFilterMode(Qt.MatchContains)
-                    combo.setCompleter(completer)
+                    # Set current classification
+                    if 'classification_name' in line_data and line_data['classification_name']:
+                        classification_combo.setCurrentText(line_data['classification_name'])
+                else:
+                    # No classifications available
+                    classification_combo.addItem("(None)")
+                    classification_combo.setEditable(False)
 
-                # Set the target classification if provided
-                if target_classification:
-                    # First try to find it in the list
-                    index = -1
-                    for i in range(combo.count()):
-                        if combo.itemText(i) == target_classification:
-                            index = i
-                            break
+                classification_combo.blockSignals(False)
 
-                    if index >= 0:
-                        combo.setCurrentIndex(index)
-                    else:
-                        # If not found in list, set it as text (if combo is editable)
-                        if combo.isEditable():
-                            combo.setCurrentText(target_classification)
+            # Set amount
+            if 'amount' in line_data:
+                amount_edit.setText(str(line_data['amount']))
 
-            # Set date if provided
+            # Set date
             if 'date' in line_data:
                 try:
                     date_obj = datetime.datetime.strptime(line_data['date'], "%Y-%m-%d").date()
@@ -1500,63 +1551,6 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
     add_credit_btn.clicked.connect(add_credit_line_with_check)
     add_debit_btn.clicked.connect(add_debit_line_with_check)
     date_edit.dateChanged.connect(update_line_dates)
-
-    # Now pre-fill the credit and debit lines if in edit mode
-    if edit_mode:
-        # If we're editing, we don't need to add default lines on page changes
-        on_current_id_changed_edit = lambda id: None
-        wizard.currentIdChanged.connect(on_current_id_changed_edit)
-
-        # Pre-fill credit lines
-        if credit_lines_data:
-            for line in credit_lines_data:
-                line_data = add_credit_line(amount=line['amount'], line_data=line)
-
-            # Update the credit total
-            update_credit_total()
-
-        # Pre-fill debit lines
-        if debit_lines_data:
-            for line in debit_lines_data:
-                line_data = add_debit_line(amount=line['amount'], line_data=line)
-
-            # Update the debit total
-            update_debit_total()
-
-    else:
-        # For new transactions, add default lines when pages are shown
-        def on_current_id_changed(current_id):
-            if current_id == 1 and not credit_line_widgets:  # Credit page
-                try:
-                    total_amount = float(total_amount_edit.text() or 0)
-                    if total_amount > 0:
-                        line_data = add_credit_line(total_amount)
-                        # Set focus to the line edit, not the combo itself
-                        if line_data['account'].lineEdit():
-                            line_data['account'].lineEdit().setFocus()
-                        line_data['amount'].textChanged.emit(line_data['amount'].text())
-                except (ValueError, TypeError):
-                    line_data = add_credit_line()
-                    if line_data['account'].lineEdit():
-                        line_data['account'].lineEdit().setFocus()
-            elif current_id == 2 and not debit_line_widgets:  # Debit page
-                try:
-                    total_amount = float(total_amount_edit.text() or 0)
-                    if total_amount > 0:
-                        line_data = add_debit_line(total_amount)
-                        # Set focus to the line edit, not the combo itself
-                        if line_data['account'].lineEdit():
-                            line_data['account'].lineEdit().setFocus()
-                        line_data['amount'].textChanged.emit(line_data['amount'].text())
-                except (ValueError, TypeError):
-                    line_data = add_debit_line()
-                    if line_data['account'].lineEdit():
-                        line_data['account'].lineEdit().setFocus()
-
-        wizard.currentIdChanged.connect(on_current_id_changed)
-
-    # Update transaction totals initially
-    update_transaction_totals()
 
     # Save Logic
     if wizard.exec_() == QWizard.Accepted:
@@ -1684,6 +1678,47 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
                                  f"Failed to {'update' if wizard.edit_mode else 'add'} transaction: {str(e)}")
 
 
+def fill_classifications_for_edit(combo, account_id, target_classification):
+    """Fill classification combo and set value during edit operations"""
+    # Clear the combo first
+    combo.clear()
+
+    # Get classification options for this account
+    classifications = db.get_classifications_for_account(account_id)
+
+    # Add items to combo
+    if not classifications:
+        combo.addItem("(None)")
+    else:
+        for classification in classifications:
+            combo.addItem(classification[1])
+
+    # Make editable if needed
+    if classifications:
+        combo.setEditable(True)
+        combo.setInsertPolicy(QComboBox.NoInsert)
+
+        # Create a completer
+        items = [c[1] for c in classifications]
+        completer = QCompleter(items, combo)
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        completer.setFilterMode(Qt.MatchContains)
+        combo.setCompleter(completer)
+
+    # Set the target classification if provided
+    if target_classification:
+        # First try to find it in the list
+        found = False
+        for i in range(combo.count()):
+            if combo.itemText(i) == target_classification:
+                combo.setCurrentIndex(i)
+                found = True
+                break
+
+        # If not in list but combo is editable, set as text
+        if not found and combo.isEditable():
+            combo.setCurrentText(target_classification)
+
 def set_classification_after_account(combo, account_id, target_classification):
     """Set classification after account is selected"""
     # First clear the combo
@@ -1740,24 +1775,43 @@ def edit_transaction_wizard(parent, table_view):
         QMessageBox.warning(parent, "Error", "Could not retrieve transaction details.")
         return
 
-    # Get transaction lines
-    credit_lines = db.get_transaction_lines_by_type(transaction_id, is_debit=False)
-    debit_lines = db.get_transaction_lines_by_type(transaction_id, is_debit=True)
+    # Get transaction lines with fully populated data
+    credit_lines = []
+    debit_lines = []
 
-    # Ensure each line has a proper classification_name
-    for line in credit_lines:
-        if line.get('classification_id'):
-            classification = db.get_classification_by_id(line['classification_id'])
-            line['classification_name'] = classification[1] if classification else ""
-        else:
-            line['classification_name'] = ""
+    # Get raw transaction lines
+    lines = db.get_transaction_lines(transaction_id)
 
-    for line in debit_lines:
-        if line.get('classification_id'):
-            classification = db.get_classification_by_id(line['classification_id'])
-            line['classification_name'] = classification[1] if classification else ""
+    for line in lines:
+        line_id = line[0]
+        account_id = line[2]
+        debit = line[3] if line[3] else 0
+        credit = line[4] if line[4] else 0
+        date = line[5]
+        classification_id = line[7]
+
+        # Get account name
+        account_name = get_cached_account_name(account_id)
+
+        # Get classification name
+        classification_name = get_cached_classification_name(classification_id)
+
+        # Create line data dictionary
+        line_data = {
+            'id': line_id,
+            'account_id': account_id,
+            'account_name': account_name,
+            'amount': debit if debit else credit,
+            'date': date,
+            'classification_id': classification_id,
+            'classification_name': classification_name
+        }
+
+        # Add to appropriate list
+        if debit > 0:
+            debit_lines.append(line_data)
         else:
-            line['classification_name'] = ""
+            credit_lines.append(line_data)
 
     # Now call the modified add_transaction_wizard with edit mode
     add_transaction_wizard(parent, table_view, edit_mode=True,
