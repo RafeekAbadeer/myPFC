@@ -989,66 +989,6 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
     credit_line_widgets = []
     debit_line_widgets = []
 
-    # Pre-fill credit and debit lines if editing
-    if edit_mode:
-        # Pre-fill credit lines
-        if credit_lines_data:
-            for credit_line in credit_lines_data:
-                line_data = add_credit_line(credit_line['amount'])
-
-                # Set account
-                account_index = -1
-                for i in range(line_data['account'].count()):
-                    if line_data['account'].itemText(i) == credit_line['account_name']:
-                        account_index = i
-                        break
-
-                if account_index >= 0:
-                    line_data['account'].setCurrentIndex(account_index)
-
-                    # This will trigger update_classification_combo
-                    if credit_line['classification_name']:
-                        # Wait a moment for classifications to load
-                        QTimer.singleShot(50, lambda cl=line_data['classification'],
-                                                     name=credit_line['classification_name']:
-                        cl.setCurrentText(name))
-
-                # Set date
-                date_obj = datetime.datetime.strptime(credit_line['date'], "%Y-%m-%d").date()
-                line_data['date'].setDate(QDate(date_obj.year, date_obj.month, date_obj.day))
-
-                # Store original line ID for later use
-                line_data.original_line_id = credit_line['id']
-
-        # Pre-fill debit lines
-        if debit_lines_data:
-            for debit_line in debit_lines_data:
-                line_data = add_debit_line(debit_line['amount'])
-
-                # Set account
-                account_index = -1
-                for i in range(line_data['account'].count()):
-                    if line_data['account'].itemText(i) == debit_line['account_name']:
-                        account_index = i
-                        break
-
-                if account_index >= 0:
-                    line_data['account'].setCurrentIndex(account_index)
-
-                    # This will trigger update_classification_combo
-                    if debit_line['classification_name']:
-                        # Wait a moment for classifications to load
-                        QTimer.singleShot(50, lambda cl=line_data['classification'],
-                                                     name=debit_line['classification_name']:
-                        cl.setCurrentText(name))
-
-                # Set date
-                date_obj = datetime.datetime.strptime(debit_line['date'], "%Y-%m-%d").date()
-                line_data['date'].setDate(QDate(date_obj.year, date_obj.month, date_obj.day))
-
-                # Store original line ID for later use
-                line_data.original_line_id = debit_line['id']
-
     # Function to update transaction total labels when main amount changes
     def update_transaction_totals():
         try:
@@ -1354,6 +1294,66 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
                     pass
 
         return line_data_dict
+
+    # Pre-fill credit and debit lines if editing
+    if edit_mode:
+        # Pre-fill credit lines
+        if credit_lines_data:
+            for credit_line in credit_lines_data:
+                line_data = add_credit_line(credit_line['amount'])
+
+                # Set account
+                account_index = -1
+                for i in range(line_data['account'].count()):
+                    if line_data['account'].itemText(i) == credit_line['account_name']:
+                        account_index = i
+                        break
+
+                if account_index >= 0:
+                    line_data['account'].setCurrentIndex(account_index)
+
+                    # This will trigger update_classification_combo
+                    if credit_line['classification_name']:
+                        # Wait a moment for classifications to load
+                        QTimer.singleShot(50, lambda cl=line_data['classification'],
+                                                     name=credit_line['classification_name']:
+                        cl.setCurrentText(name))
+
+                # Set date
+                date_obj = datetime.datetime.strptime(credit_line['date'], "%Y-%m-%d").date()
+                line_data['date'].setDate(QDate(date_obj.year, date_obj.month, date_obj.day))
+
+                # Store original line ID for later use
+                line_data.original_line_id = credit_line['id']
+
+        # Pre-fill debit lines
+        if debit_lines_data:
+            for debit_line in debit_lines_data:
+                line_data = add_debit_line(debit_line['amount'])
+
+                # Set account
+                account_index = -1
+                for i in range(line_data['account'].count()):
+                    if line_data['account'].itemText(i) == debit_line['account_name']:
+                        account_index = i
+                        break
+
+                if account_index >= 0:
+                    line_data['account'].setCurrentIndex(account_index)
+
+                    # This will trigger update_classification_combo
+                    if debit_line['classification_name']:
+                        # Wait a moment for classifications to load
+                        QTimer.singleShot(50, lambda cl=line_data['classification'],
+                                                     name=debit_line['classification_name']:
+                        cl.setCurrentText(name))
+
+                # Set date
+                date_obj = datetime.datetime.strptime(debit_line['date'], "%Y-%m-%d").date()
+                line_data['date'].setDate(QDate(date_obj.year, date_obj.month, date_obj.day))
+
+                # Store original line ID for later use
+                line_data.original_line_id = debit_line['id']
 
     # Function to remove a credit line
     def remove_credit_line(line_data):
