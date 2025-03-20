@@ -864,6 +864,38 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
         # Set the total amount
         total_amount_edit.setText(f"{total_amount:.2f}")
 
+        # Create a proper validation function
+        def validate_wizard_fields():
+            # Check if both mandatory fields have content
+            has_description = bool(description_edit.text().strip())
+            has_amount = False
+            try:
+                amount = float(total_amount_edit.text() or 0)
+                has_amount = amount > 0
+            except (ValueError, TypeError):
+                has_amount = False
+
+            # Only enable the Next button if both fields are valid
+            wizard.button(QWizard.NextButton).setEnabled(has_description and has_amount)
+
+        # Store the original buttons
+        def fix_back_button_navigation():
+            # When navigating back to page 1, ensure Next button is properly enabled
+            current_id = wizard.currentId()
+            if current_id == 0 and edit_mode:  # We're on page 1 (index 0)
+                # Re-run our validation to fix the Next button
+                validate_wizard_fields()
+
+        # Connect to page changed signal
+        wizard.currentIdChanged.connect(fix_back_button_navigation)
+
+        # Connect validation to text changes to maintain field validation
+        description_edit.textChanged.connect(validate_wizard_fields)
+        total_amount_edit.textChanged.connect(validate_wizard_fields)
+
+        # Call validation after a delay to ensure all initial values are set
+        QTimer.singleShot(200, validate_wizard_fields)
+
         # Find the earliest date in the transaction lines
         earliest_date = None
         all_lines = []
@@ -1393,14 +1425,39 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
         # Pre-fill credit lines
         if credit_lines_data:
             for line in credit_lines_data:
-                add_credit_line(amount=line['amount'], line_data=line)
+                line_data = add_credit_line(amount=line['amount'], line_data=line)
+
+                # Force update for the account and classification combos
+                # Set account if provided
+                if 'account_name' in line and line_data['account'].findText(line['account_name']) != -1:
+                    line_data['account'].setCurrentText(line['account_name'])
+
+                    # Wait a moment, then set classification
+                    if 'classification_name' in line and line['classification_name']:
+                        # We need a slightly longer delay for classification
+                        QTimer.singleShot(200,
+                                          lambda name=line['classification_name'], combo=line_data['classification']:
+                                          combo.setCurrentText(name))
+
             # Update the credit total
             update_credit_total()
 
         # Pre-fill debit lines
         if debit_lines_data:
             for line in debit_lines_data:
-                add_debit_line(amount=line['amount'], line_data=line)
+                line_data = add_debit_line(amount=line['amount'], line_data=line)
+
+                # Force update for the account and classification combos
+                # Set account if provided
+                if 'account_name' in line and line_data['account'].findText(line['account_name']) != -1:
+                    line_data['account'].setCurrentText(line['account_name'])
+
+                    # Wait a moment, then set classification
+                    if 'classification_name' in line and line['classification_name']:
+                        # We need a slightly longer delay for classification
+                        QTimer.singleShot(200,
+                                          lambda name=line['classification_name'], combo=line_data['classification']:
+                                          combo.setCurrentText(name))
             # Update the debit total
             update_debit_total()
 
