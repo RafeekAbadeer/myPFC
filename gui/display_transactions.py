@@ -1261,7 +1261,18 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
         # Update classification and move focus when account is selected
         def on_account_selected(index):
             if index >= 0 and index < len(accounts):  # Validate index
+                # Remember current classification
+                current_classification = classification_combo.currentText()
+
+                # Update the classification combo
                 update_classification_combo(classification_combo, accounts[index])
+
+                # Try to restore previous classification if possible
+                if current_classification and current_classification != "(None)":
+                    for i in range(classification_combo.count()):
+                        if classification_combo.itemText(i) == current_classification:
+                            classification_combo.setCurrentIndex(i)
+                            break
                 classification_combo.setFocus()
 
         account_combo.currentIndexChanged.connect(on_account_selected)
@@ -1300,22 +1311,86 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
 
         # Pre-fill the line if we are editing and have line data
         if line_data:
+            # Store the account name first - important to do this before any setCurrentIndex calls
+            account_name = line_data.get('account_name', '')
+            classification_name = line_data.get('classification_name', '')
+
             # Set account if provided
-            if 'account_name' in line_data:
+            if 'account_name':
+                # Find the account index
                 account_index = -1
                 for i in range(account_combo.count()):
-                    if account_combo.itemText(i) == line_data['account_name']:
+                    if account_combo.itemText(i) == account_name:
                         account_index = i
                         break
 
                 if account_index >= 0:
-                    account_combo.setCurrentIndex(account_index)
-                    # This will trigger updating the classification combo
+                    # Temporarily disconnect signals to prevent classification changes
+                    if hasattr(account_combo, 'currentIndexChanged'):
+                        account_combo.currentIndexChanged.disconnect()
 
-            # Set classification if provided
-            if 'classification_name' in line_data and line_data['classification_name']:
-                # We need to wait for the account selection to populate classifications
-                QTimer.singleShot(100, lambda: classification_combo.setCurrentText(line_data['classification_name']))
+                    # Set the account
+                    account_combo.setCurrentIndex(account_index)
+
+                    # Now manually update classifications
+                    # This will be called after the account is set
+                    QTimer.singleShot(100, lambda: set_classification_after_account(
+                        classification_combo,
+                        db.get_account_id(account_name),
+                        classification_name
+                    ))
+
+            # Set date if provided
+            if 'date' in line_data:
+                try:
+                    date_obj = datetime.datetime.strptime(line_data['date'], "%Y-%m-%d").date()
+                    line_date_edit.setDate(QDate(date_obj.year, date_obj.month, date_obj.day))
+                except:
+                    pass
+
+            # Add this function right before or after add_transaction_wizard:
+
+            def update_classification_for_edit(account_name, combo, target_classification):
+                """Special function to update classification combo when editing"""
+                combo.clear()
+                account_id = db.get_account_id(account_name)
+                classifications = db.get_classifications_for_account(account_id)
+
+                # Only show "(None)" when there are NO classifications available
+                if not classifications:
+                    combo.addItem("(None)")
+                else:
+                    # Add all classifications
+                    for classification in classifications:
+                        combo.addItem(classification[1])
+
+                # Make the combo editable with autocompletion if there are classifications
+                if classifications:
+                    items = [c[1] for c in classifications]
+                    combo.setEditable(True)
+                    combo.setInsertPolicy(QComboBox.NoInsert)
+
+                    # Create a completer
+                    completer = QCompleter(items, combo)
+                    completer.setCaseSensitivity(Qt.CaseInsensitive)
+                    completer.setFilterMode(Qt.MatchContains)
+                    combo.setCompleter(completer)
+
+                # Set the target classification if provided
+                if target_classification:
+                    # First try to find it in the list
+                    index = -1
+                    for i in range(combo.count()):
+                        if combo.itemText(i) == target_classification:
+                            index = i
+                            break
+
+                    if index >= 0:
+                        combo.setCurrentIndex(index)
+                    else:
+                        # If not found in list, set it as text (if combo is editable)
+                        if combo.isEditable():
+                            combo.setCurrentText(target_classification)
 
             # Set date if provided
             if 'date' in line_data:
@@ -1390,6 +1465,16 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
 
                 combo.lineEdit().installEventFilter(FocusEventFilter(on_focus))
 
+            # Remember current text if possible
+            current_text = combo.currentText()
+
+            # After populating the combo items, try to restore selection
+            if current_text and current_text != "(None)":
+                for i in range(combo.count()):
+                    if combo.itemText(i) == current_text:
+                        combo.setCurrentIndex(i)
+                        break
+
     def add_credit_line_with_check():
         current_total = sum(float(line['amount'].text() or 0) for line in credit_line_widgets)
         can_add, remaining = can_add_new_line(total_amount_edit.text(), current_total, wizard)
@@ -1427,18 +1512,6 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
             for line in credit_lines_data:
                 line_data = add_credit_line(amount=line['amount'], line_data=line)
 
-                # Force update for the account and classification combos
-                # Set account if provided
-                if 'account_name' in line and line_data['account'].findText(line['account_name']) != -1:
-                    line_data['account'].setCurrentText(line['account_name'])
-
-                    # Wait a moment, then set classification
-                    if 'classification_name' in line and line['classification_name']:
-                        # We need a slightly longer delay for classification
-                        QTimer.singleShot(200,
-                                          lambda name=line['classification_name'], combo=line_data['classification']:
-                                          combo.setCurrentText(name))
-
             # Update the credit total
             update_credit_total()
 
@@ -1447,17 +1520,6 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
             for line in debit_lines_data:
                 line_data = add_debit_line(amount=line['amount'], line_data=line)
 
-                # Force update for the account and classification combos
-                # Set account if provided
-                if 'account_name' in line and line_data['account'].findText(line['account_name']) != -1:
-                    line_data['account'].setCurrentText(line['account_name'])
-
-                    # Wait a moment, then set classification
-                    if 'classification_name' in line and line['classification_name']:
-                        # We need a slightly longer delay for classification
-                        QTimer.singleShot(200,
-                                          lambda name=line['classification_name'], combo=line_data['classification']:
-                                          combo.setCurrentText(name))
             # Update the debit total
             update_debit_total()
 
@@ -1621,6 +1683,48 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
             QMessageBox.critical(parent, "Error",
                                  f"Failed to {'update' if wizard.edit_mode else 'add'} transaction: {str(e)}")
 
+
+def set_classification_after_account(combo, account_id, target_classification):
+    """Set classification after account is selected"""
+    # First clear the combo
+    combo.clear()
+
+    # Get classifications for this account
+    classifications = db.get_classifications_for_account(account_id)
+
+    # Only show "(None)" when there are NO classifications available
+    if not classifications:
+        combo.addItem("(None)")
+    else:
+        # Add all classifications
+        for classification in classifications:
+            combo.addItem(classification[1])
+
+    # Make editable if needed
+    if classifications:
+        items = [c[1] for c in classifications]
+        combo.setEditable(True)
+        combo.setInsertPolicy(QComboBox.NoInsert)
+
+        # Create a completer
+        completer = QCompleter(items, combo)
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        completer.setFilterMode(Qt.MatchContains)
+        combo.setCompleter(completer)
+
+    # Set the target classification if provided
+    if target_classification:
+        found = False
+        for i in range(combo.count()):
+            if combo.itemText(i) == target_classification:
+                combo.setCurrentIndex(i)
+                found = True
+                break
+
+        # If not found in the list but combo is editable, set as text
+        if not found and combo.isEditable():
+            combo.setCurrentText(target_classification)
+
 def edit_transaction_wizard(parent, table_view):
     """Edit an existing transaction using the same wizard as for adding"""
     row_data = get_selected_row_data(table_view)
@@ -1639,6 +1743,21 @@ def edit_transaction_wizard(parent, table_view):
     # Get transaction lines
     credit_lines = db.get_transaction_lines_by_type(transaction_id, is_debit=False)
     debit_lines = db.get_transaction_lines_by_type(transaction_id, is_debit=True)
+
+    # Ensure each line has a proper classification_name
+    for line in credit_lines:
+        if line.get('classification_id'):
+            classification = db.get_classification_by_id(line['classification_id'])
+            line['classification_name'] = classification[1] if classification else ""
+        else:
+            line['classification_name'] = ""
+
+    for line in debit_lines:
+        if line.get('classification_id'):
+            classification = db.get_classification_by_id(line['classification_id'])
+            line['classification_name'] = classification[1] if classification else ""
+        else:
+            line['classification_name'] = ""
 
     # Now call the modified add_transaction_wizard with edit mode
     add_transaction_wizard(parent, table_view, edit_mode=True,
