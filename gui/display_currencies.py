@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QVBoxLayout, QTableView, QAction, QMessageBox, QHeaderView
+from PyQt5.QtWidgets import QVBoxLayout, QTableView, QAction, QMessageBox, QHeaderView, QLabel
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon
 from PyQt5.QtCore import Qt, QSortFilterProxyModel
 from gui.dialog_utils import show_entity_dialog
@@ -21,7 +21,6 @@ def get_selected_row_data(table_view):
 
     return row_data
 
-
 def display_currencies(content_frame, toolbar):
     # Clear existing layout
     layout = content_frame.layout()
@@ -39,9 +38,20 @@ def display_currencies(content_frame, toolbar):
     for action in toolbar.actions()[:-2]:
         toolbar.removeAction(action)
 
+    # Add label above transactions table
+    currency_header = QLabel("<h3>Currencies</h3>")
+    layout.addWidget(currency_header)
+
     # Create table view
     table_view = QTableView()
     layout.addWidget(table_view)
+
+    table_view.setAlternatingRowColors(True)
+    # Make transactions table non-editable
+    table_view.setEditTriggers(QTableView.NoEditTriggers)
+
+    # Select entire rows
+    table_view.setSelectionBehavior(QTableView.SelectRows)
 
     # Enable sorting
     table_view.setSortingEnabled(True)
@@ -82,10 +92,7 @@ def load_currencies(table_view):
         model.appendRow([id_item, name_item, rate_item])
 
     table_view.setModel(model)
-    table_view.setColumnWidth(0, 80)
-    table_view.setColumnWidth(1, 150)
-    table_view.setColumnWidth(2, 150)
-    table_view.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+    table_view.resizeColumnsToContents()
 
 
 def add_currency(parent, table_view):

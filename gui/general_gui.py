@@ -75,7 +75,7 @@ class Application(QMainWindow):
 
         self.toolbar = QToolBar()
         self.toolbar.setIconSize(QSize(20,20))
-        self.toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)
         self.toolbar.setMovable(False)
         self.right_layout.addWidget(self.toolbar)
 

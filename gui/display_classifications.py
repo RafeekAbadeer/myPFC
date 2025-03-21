@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QVBoxLayout, QTableView, QAction, QMessageBox, QHeaderView
+from PyQt5.QtWidgets import QVBoxLayout, QTableView, QAction, QMessageBox, QHeaderView, QLabel
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon
 from PyQt5.QtCore import Qt, QSortFilterProxyModel
 from gui.dialog_utils import show_entity_dialog
@@ -39,9 +39,19 @@ def display_classifications(content_frame, toolbar):
     for action in toolbar.actions()[:-2]:
         toolbar.removeAction(action)
 
+    # Add label above transactions table
+    classification_header = QLabel("<h3>Classifications</h3>")
+    layout.addWidget(classification_header)
+
     # Create table view
     table_view = QTableView()
     layout.addWidget(table_view)
+    table_view.setAlternatingRowColors(True)
+    # Make transactions table non-editable
+    table_view.setEditTriggers(QTableView.NoEditTriggers)
+
+    # Select entire rows
+    table_view.setSelectionBehavior(QTableView.SelectRows)
 
     # Enable sorting
     table_view.setSortingEnabled(True)
@@ -81,9 +91,7 @@ def load_classifications(table_view):
         model.appendRow([id_item, name_item])
 
     table_view.setModel(model)
-    table_view.setColumnWidth(0, 80)
-    table_view.setColumnWidth(1, 200)
-    table_view.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+    table_view.resizeColumnsToContents()
 
 
 def add_classification(parent, table_view):

@@ -1,6 +1,7 @@
-from PyQt5.QtWidgets import QVBoxLayout, QTableView, QAction, QMessageBox, QHeaderView, QWidget, QToolBar
+from PyQt5.QtWidgets import (QVBoxLayout, QTableView, QAction, QMessageBox, QHeaderView, QWidget,
+                             QToolBar, QLabel)
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon
-from PyQt5.QtCore import Qt, QSortFilterProxyModel
+from PyQt5.QtCore import Qt, QSortFilterProxyModel, QSize
 from gui.dialog_utils import show_entity_dialog
 from database import db
 
@@ -20,7 +21,6 @@ def get_selected_row_data(table_view):
         row_data[col_name] = value
 
     return row_data
-
 
 def display_accounts(content_frame, toolbar):
     # Clear existing layout
@@ -43,9 +43,19 @@ def display_accounts(content_frame, toolbar):
     main_layout = layout  # Use the existing layout instead of creating a new one
     content_frame.setLayout(main_layout)
 
+    # Add label above transactions table
+    Accounts_header = QLabel("<h3>Accounts</h3>")
+    main_layout.addWidget(Accounts_header)
+
     # Create table view
     table_view = QTableView()
     main_layout.addWidget(table_view)
+    table_view.setAlternatingRowColors(True)
+    # Make transactions table non-editable
+    table_view.setEditTriggers(QTableView.NoEditTriggers)
+
+    # Select entire rows
+    table_view.setSelectionBehavior(QTableView.SelectRows)
 
     # Create classifications panel (initially hidden)
     classifications_panel = QWidget()
@@ -56,7 +66,12 @@ def display_accounts(content_frame, toolbar):
 
     # Create classifications toolbar
     class_toolbar = QToolBar()
+    class_toolbar.setIconSize(QSize(20, 20))
     classifications_layout.addWidget(class_toolbar)
+
+    # Add label above transactions table
+    classifications_header = QLabel("<h3>Associated Classifications</h3>")
+    classifications_layout.addWidget(classifications_header)
 
     # Add actions for classifications
     add_class_action = QAction(QIcon('icons/add.png'), "Assign Classification", class_toolbar)
@@ -69,8 +84,20 @@ def display_accounts(content_frame, toolbar):
     class_table = QTableView()
     classifications_layout.addWidget(class_table)
 
+    class_table.setAlternatingRowColors(True)
+    # Make transactions table non-editable
+    class_table.setEditTriggers(QTableView.NoEditTriggers)
+
+    # Select entire rows
+    class_table.setSelectionBehavior(QTableView.SelectRows)
+
     # Enable sorting
     table_view.setSortingEnabled(True)
+    class_table.setSortingEnabled(True)
+
+    # Set sensible column widths
+    #table_view.resizeColumnsToContents()
+    #class_table.resizeColumnsToContents()
 
     # Add toolbar buttons
     add_action = QAction(QIcon('icons/add.png'), "Add", toolbar)
@@ -91,6 +118,7 @@ def display_accounts(content_frame, toolbar):
 
     # Load data
     load_accounts(table_view)
+    table_view.resizeColumnsToContents()
 
     # Create a proper function to handle selection changes
     def on_selection_changed():
@@ -137,10 +165,10 @@ def load_accounts(table_view):
 
     # Set the proxy model to the table view
     table_view.setModel(proxy_model)
-    table_view.setColumnWidth(0, 60)
-    table_view.setColumnWidth(1, 200)
-    table_view.setColumnWidth(2, 150)
-    table_view.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+    # table_view.setColumnWidth(0, 60)
+    # table_view.setColumnWidth(1, 200)
+    # table_view.setColumnWidth(2, 150)
+    # table_view.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
 
 def add_account(parent, table_view):
     # Get categories and currencies for dropdown
@@ -181,7 +209,6 @@ def add_account(parent, table_view):
             QMessageBox.information(parent, "Success", "Account added successfully.")
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to add account: {e}")
-
 
 def edit_account(parent, table_view):
     row_data = get_selected_row_data(table_view)
@@ -286,7 +313,6 @@ def edit_account(parent, table_view):
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to update account: {e}")
 
-
 def delete_account(parent, table_view):
     row_data = get_selected_row_data(table_view)
     if not row_data:
@@ -324,7 +350,6 @@ def delete_account(parent, table_view):
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to delete account: {e}")
 
-
 def update_classifications_display(accounts_table, classifications_panel, class_table):
     """Update the classifications table when an account is selected"""
     row_data = get_selected_row_data(accounts_table)
@@ -340,7 +365,7 @@ def update_classifications_display(accounts_table, classifications_panel, class_
 
     # Load classifications for the selected account
     load_account_classifications(class_table, account_id)
-
+    class_table.resizeColumnsToContents()
 
 def load_account_classifications(class_table, account_id):
     """Load classifications for the selected account into the table"""
@@ -371,8 +396,8 @@ def load_account_classifications(class_table, account_id):
 
     # Set the proxy model to the table view
     class_table.setModel(proxy_model)
-    class_table.setColumnWidth(0, 60)
-    class_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+    # class_table.setColumnWidth(0, 60)
+    # class_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
 
 def filter_accounts(parent, table_view):
     # Get categories for filtering
@@ -426,7 +451,6 @@ def filter_accounts(parent, table_view):
         # Set the proxy model to the table view
         table_view.setModel(proxy_model)
 
-
 def assign_classification(parent, accounts_table, class_table):
     """Show dialog to assign a classification to the selected account"""
     # Always get the currently selected account
@@ -479,7 +503,6 @@ def assign_classification(parent, accounts_table, class_table):
                 QMessageBox.warning(parent, "Warning", "Selected classification not found.")
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to assign classification: {e}")
-
 
 def unassign_classification(parent, accounts_table, class_table):
     """Remove a classification from the selected account"""

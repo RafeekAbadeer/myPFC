@@ -202,6 +202,7 @@ def display_transactions(content_frame, toolbar):
     # Create table view for transactions
     transactions_table = QTableView()
     transactions_layout.addWidget(transactions_table)
+    transactions_table.setAlternatingRowColors(True)
 
     splitter.addWidget(transactions_widget)
 
@@ -210,6 +211,8 @@ def display_transactions(content_frame, toolbar):
 
     # Select entire rows
     transactions_table.setSelectionBehavior(QTableView.SelectRows)
+
+
 
     # Create bottom widget for transaction lines
     lines_widget = QWidget()
@@ -318,6 +321,7 @@ def display_transactions(content_frame, toolbar):
     # Create credit lines table
     credit_table = QTableView()
     lines_layout.addWidget(credit_table)
+    credit_table.setAlternatingRowColors(True)
 
     # Make credit lines table non-editable
     credit_table.setEditTriggers(QTableView.NoEditTriggers)
@@ -331,6 +335,7 @@ def display_transactions(content_frame, toolbar):
     # Create debit lines table
     debit_table = QTableView()
     lines_layout.addWidget(debit_table)
+    debit_table.setAlternatingRowColors(True)
 
     # Make debit lines table non-editable
     debit_table.setEditTriggers(QTableView.NoEditTriggers)

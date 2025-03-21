@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QVBoxLayout, QTableView, QAction, QMessageBox, QHeaderView
+from PyQt5.QtWidgets import QVBoxLayout, QTableView, QAction, QMessageBox, QHeaderView, QLabel
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon
 from PyQt5.QtCore import Qt, QSortFilterProxyModel
 from gui.dialog_utils import show_entity_dialog
@@ -21,10 +21,8 @@ def get_selected_row_data(table_view):
 
     return row_data
 
-
 def display_credit_cards(content_frame, toolbar):
     # Clear existing layout
-    #print('Starting to display credit cards')
     layout = content_frame.layout()
     if layout is not None:
         while layout.count():
@@ -36,14 +34,22 @@ def display_credit_cards(content_frame, toolbar):
         content_frame.setLayout(layout)
 
     # Clear toolbar actions except the last (dark mode toggle)
-    #print('clearing toolbar')
     actions_to_keep = toolbar.actions()[-2:]
     for action in toolbar.actions()[:-2]:
         toolbar.removeAction(action)
 
+    # Add label above transactions table
+    creditcards_header = QLabel("<h3>Credit Cards</h3>")
+    layout.addWidget(creditcards_header)
+
     # Create table view
     table_view = QTableView()
     layout.addWidget(table_view)
+    table_view.setAlternatingRowColors(True)
+    # Make transactions table non-editable
+    table_view.setEditTriggers(QTableView.NoEditTriggers)
+    # Select entire rows
+    table_view.setSelectionBehavior(QTableView.SelectRows)
 
     # Enable sorting
     table_view.setSortingEnabled(True)
@@ -67,7 +73,6 @@ def display_credit_cards(content_frame, toolbar):
 
     # Load data
     load_credit_cards(table_view)
-
 
 def load_credit_cards(table_view):
     model = QStandardItemModel()
@@ -110,13 +115,7 @@ def load_credit_cards(table_view):
 
     # Set the proxy model to the table view
     table_view.setModel(proxy_model)
-    table_view.setColumnWidth(0, 60)
-    table_view.setColumnWidth(1, 200)
-    table_view.setColumnWidth(2, 100)
-    table_view.setColumnWidth(3, 80)
-    table_view.setColumnWidth(4, 80)
-    table_view.horizontalHeader().setSectionResizeMode(5, QHeaderView.Stretch)
-
+    table_view.resizeColumnsToContents()
 
 def add_credit_card(parent, table_view):
     # Get currencies for dropdown
@@ -156,7 +155,6 @@ def add_credit_card(parent, table_view):
             QMessageBox.information(parent, "Success", "Credit card added successfully.")
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to add credit card: {e}")
-
 
 def edit_credit_card(parent, table_view):
     row_data = get_selected_row_data(table_view)
@@ -216,7 +214,6 @@ def edit_credit_card(parent, table_view):
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to update credit card: {e}")
 
-
 def delete_credit_card(parent, table_view):
     row_data = get_selected_row_data(table_view)
     if not row_data:
@@ -260,7 +257,6 @@ def delete_credit_card(parent, table_view):
             QMessageBox.information(parent, "Success", "Credit card deleted successfully.")
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to delete credit card: {e}")
-
 
 def view_credit_card_statement(parent, table_view):
     row_data = get_selected_row_data(table_view)
@@ -314,7 +310,6 @@ def view_credit_card_statement(parent, table_view):
 
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to retrieve statement: {e}")
-
 
 def display_statement(parent, card_name, statement_data, month, year):
     """

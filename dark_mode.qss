@@ -385,6 +385,7 @@ QTableCornerButton::section {
 /* Table View */
 QTableView {
   background-color: #3c3c3c;
+  alternate-background-color: #444444;
   gridline-color: #444444;
   selection-background-color: #575757;
   selection-color: #ffffff;
