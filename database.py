@@ -421,7 +421,7 @@ class Database:
     def update_transaction(self, id, description, currency_id):
         self.cursor.execute("UPDATE transactions SET description = ?, currency_id = ? WHERE id = ?",
                             (description, currency_id, id))
-        self.conn.commit()
+        #self.conn.commit()
 
     def delete_transaction(self, id):
         # First delete all associated transaction lines (using foreign key constraints)
@@ -475,11 +475,11 @@ class Database:
             SET account_id = ?, debit = ?, credit = ?, date = ?, classification_id = ?
             WHERE id = ?
         """, (account_id, debit, credit, date, classification_id, id))
-        self.conn.commit()
+        #self.conn.commit()
 
     def delete_transaction_line(self, id):
         self.cursor.execute("DELETE FROM transaction_lines WHERE id = ?", (id,))
-        self.conn.commit()
+        #self.conn.commit()
 
     def begin_transaction(self):
         """Begin a database transaction"""
