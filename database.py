@@ -29,6 +29,7 @@ class Database:
                 name TEXT NOT NULL,
                 cat_id INTEGER NOT NULL,
                 default_currency_id INTEGER,
+                nature TEXT CHECK (nature IN ('debit', 'credit', 'both')) DEFAULT 'both',
                 FOREIGN KEY (cat_id) REFERENCES cat (id),
                 FOREIGN KEY (default_currency_id) REFERENCES currency (id) ON DELETE SET NULL
             )
@@ -85,6 +86,31 @@ class Database:
                     FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE,
                     FOREIGN KEY (classification_id) REFERENCES classifications (id) ON DELETE CASCADE,
                     UNIQUE(account_id, classification_id)
+                )
+            ''')
+
+        self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS orphan_transactions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    reference TEXT,
+                    import_date TEXT,
+                    status TEXT CHECK (status IN ('new', 'processed', 'ignored'))
+                )
+            ''')
+
+        self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS orphan_transaction_lines (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    orphan_transaction_id INTEGER,
+                    description TEXT,
+                    account_id INTEGER,
+                    debit REAL,
+                    credit REAL,
+                    status TEXT CHECK (status IN ('new', 'consumed', 'ignored')) DEFAULT 'new',
+                    transaction_id INTEGER,  -- Reference to the transaction that consumed this line (NULL if not consumed)
+                    FOREIGN KEY (orphan_transaction_id) REFERENCES orphan_transactions(id) ON DELETE CASCADE,
+                    FOREIGN KEY (account_id) REFERENCES accounts(id),
+                    FOREIGN KEY (transaction_id) REFERENCES transactions(id)
                 )
             ''')
 
@@ -627,6 +653,14 @@ class Database:
             })
 
         return results
+
+    def consume_orphan_line(orphan_line_id, transaction_id):
+        db.cursor.execute("""
+            UPDATE orphan_transaction_lines 
+            SET status = 'consumed', transaction_id = ? 
+            WHERE id = ?
+        """, (transaction_id, orphan_line_id))
+        db.conn.commit()
 
 # Initialize the database
 db = Database('finance.db')
