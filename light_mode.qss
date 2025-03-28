@@ -142,9 +142,55 @@ QSplitter::handle {
 }
 
 QWizard, QWizardPage, QTableView, QHeaderView, QHeaderView::section {
-    font-size: 9pt;
+    font-size: 11pt;
 }
 
 QWizard QLabel, QWizard QPushButton, QWizard QLineEdit, QWizard QComboBox, QWizard QDateEdit {
-    font-size: 9pt;
+    font-size: 11pt;
+}
+
+/* Global font size settings */
+QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QDateEdit, QTimeEdit, QDateTimeEdit, QSpinBox, QDoubleSpinBox {
+    font-size: 11pt;
+}
+
+QLabel, QPushButton, QCheckBox, QRadioButton {
+    font-size: 11pt;
+}
+
+QTableView, QTreeView, QListView {
+    font-size: 11pt;
+}
+
+QHeaderView::section {
+    font-size: 11pt;
+    font-weight: bold;
+}
+
+QToolTip {
+    font-size: 11pt;
+}
+
+QMenu::item {
+    font-size: 11pt;
+}
+
+QMenuBar::item {
+    font-size: 11pt;
+}
+
+QGroupBox {
+    font-size: 11pt;
+}
+
+QTabBar::tab {
+    font-size: 11pt;
+}
+
+QToolButton {
+    font-size: 11pt;
+}
+
+QDialog {
+    font-size: 11pt;
 }

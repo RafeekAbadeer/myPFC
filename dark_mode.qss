@@ -63,11 +63,11 @@ QWizard #qt_wizard_subtitlelabel {
 
 /* Fix font sizing inconsistencies*/
 QWizard, QWizardPage, QTableView, QHeaderView, QHeaderView::section {
-    font-size: 9pt;
+    font-size: 11pt;
 }
 
 QWizard QLabel, QWizard QPushButton, QWizard QLineEdit, QWizard QComboBox, QWizard QDateEdit {
-    font-size: 9pt;
+    font-size: 11pt;
 }
 
 /* Make header text more visible */
@@ -502,6 +502,7 @@ QMainWindow::title {
 QDialog {
   background-color: #2e2e2e;
   color: #ffffff;
+  font-size: 12pt;
 }
 
 /* These pseudo-elements might work on some platforms */
@@ -580,4 +581,50 @@ QScrollBar:vertical {
 QComboBox#pagination_size_combo {
     min-width: 100px;
     padding-right: 5px;
+}
+
+/* Global font size settings */
+QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QDateEdit, QTimeEdit, QDateTimeEdit, QSpinBox, QDoubleSpinBox {
+    font-size: 10pt;
+}
+
+QLabel, QPushButton, QCheckBox, QRadioButton {
+    font-size: 11pt;
+}
+
+QTableView, QTreeView, QListView {
+    font-size: 11pt;
+}
+
+QHeaderView::section {
+    font-size: 11pt;
+    font-weight: bold;
+}
+
+QToolTip {
+    font-size: 11pt;
+}
+
+QMenu::item {
+    font-size: 11pt;
+}
+
+QMenuBar::item {
+    font-size: 11pt;
+}
+
+QGroupBox {
+    font-size: 11pt;
+}
+
+QTabBar::tab {
+    font-size: 11pt;
+}
+
+QToolButton {
+    font-size: 11pt;
+}
+
+QDialog {
+    font-size: 11pt;
 }

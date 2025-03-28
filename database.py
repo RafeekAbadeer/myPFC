@@ -1,4 +1,5 @@
 import sqlite3
+import datetime
 
 class Database:
     def __init__(self, db_name):
@@ -114,6 +115,27 @@ class Database:
                 )
             ''')
 
+        self.cursor.execute('''
+                        CREATE TABLE IF NOT EXISTS filter_profiles (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            name TEXT NOT NULL,
+                            target_entity TEXT NOT NULL,
+                            is_default BOOLEAN DEFAULT 0
+                        )
+                    ''')
+
+        self.cursor.execute('''
+                                CREATE TABLE IF NOT EXISTS filter_criteria (
+                                    id INTEGER PRIMARY KEY,
+                                    profile_id INTEGER NOT NULL,
+                                    field_name TEXT NOT NULL,
+                                    operator TEXT NOT NULL,
+                                    value TEXT,
+                                    FOREIGN KEY (profile_id) REFERENCES filter_profiles(id) ON DELETE CASCADE
+                                )
+                            ''')
+
+
         # Create indexes
         self.cursor.execute('''CREATE INDEX IF NOT EXISTS idx_ccards_account_id ON ccards (account_id)''')
         self.cursor.execute(
@@ -163,8 +185,8 @@ class Database:
         self.conn.commit()
         return self.cursor.lastrowid
 
-    def insert_account(self, name, cat_id, default_currency_id=None):
-        self.cursor.execute("INSERT INTO accounts (name, cat_id, default_currency_id) VALUES (?, ?, ?)", (name, cat_id, default_currency_id))
+    def insert_account(self, name, cat_id, default_currency_id=None, nature='both'):
+        self.cursor.execute("INSERT INTO accounts (name, cat_id, default_currency_id, nature) VALUES (?, ?, ?, ?)", (name, cat_id, default_currency_id, nature))
         self.conn.commit()
         return self.cursor.lastrowid
 
@@ -235,9 +257,9 @@ class Database:
         self.cursor.execute("DELETE FROM currency WHERE id = ?", (id,))
         self.conn.commit()
 
-    def update_account(self, id, name, cat_id, default_currency_id=None):
-        self.cursor.execute("UPDATE accounts SET name = ?, cat_id = ?, default_currency_id = ? WHERE id = ?",
-                            (name, cat_id, default_currency_id, id))
+    def update_account(self, id, name, cat_id, default_currency_id=None, nature='both'):
+        self.cursor.execute("UPDATE accounts SET name = ?, cat_id = ?, default_currency_id = ?, nature = ? WHERE id = ?",
+                            (name, cat_id, default_currency_id, nature, id))
         self.conn.commit()
 
     def delete_account(self, id):
@@ -324,7 +346,7 @@ class Database:
 
     def get_all_accounts(self):
         self.cursor.execute("""
-            SELECT a.id, a.name, c.name as category, cu.name as currency
+            SELECT a.id, a.name, c.name as category, cu.name as currency, a.nature
             FROM accounts a
             JOIN cat c ON a.cat_id = c.id
             LEFT JOIN currency cu ON a.default_currency_id = cu.id
@@ -359,7 +381,7 @@ class Database:
 
     def get_account_details(self, account_id):
         self.cursor.execute("""
-            SELECT a.id, a.name, a.cat_id, a.default_currency_id, c.name, cu.name
+            SELECT a.id, a.name, a.cat_id, a.default_currency_id, c.name, cu.name, a.nature
             FROM accounts a
             JOIN cat c ON a.cat_id = c.id
             LEFT JOIN currency cu ON a.default_currency_id = cu.id
@@ -373,7 +395,8 @@ class Database:
                 'category_id': result[2],
                 'currency_id': result[3],
                 'category_name': result[4],
-                'currency_name': result[5]
+                'currency_name': result[5],
+                'nature': result[6]
             }
         return None
 
@@ -654,13 +677,259 @@ class Database:
 
         return results
 
-    def consume_orphan_line(orphan_line_id, transaction_id):
-        db.cursor.execute("""
+    def consume_orphan_line(self, orphan_line_id, transaction_id):
+        self.cursor.execute("""
             UPDATE orphan_transaction_lines 
             SET status = 'consumed', transaction_id = ? 
             WHERE id = ?
         """, (transaction_id, orphan_line_id))
-        db.conn.commit()
+        self.conn.commit()
+
+    def get_orphan_transactions(self, status=None):
+        """Get orphan transactions with optional status filter"""
+        query = "SELECT id, reference, import_date, status FROM orphan_transactions"
+        params = []
+
+        if status:
+            query += " WHERE status = ?"
+            params.append(status)
+
+        query += " ORDER BY import_date DESC"
+        self.cursor.execute(query, params)
+        return self.cursor.fetchall()
+
+    def get_orphan_lines(self, orphan_transaction_id=None, status=None):
+        """Get orphan transaction lines with optional filters"""
+        query = """
+            SELECT otl.id, otl.orphan_transaction_id, otl.description, 
+                   otl.account_id, a.name as account_name, 
+                   otl.debit, otl.credit, otl.status, otl.transaction_id
+            FROM orphan_transaction_lines otl
+            LEFT JOIN accounts a ON otl.account_id = a.id
+            WHERE 1=1
+        """
+        params = []
+
+        if orphan_transaction_id:
+            query += " AND otl.orphan_transaction_id = ?"
+            params.append(orphan_transaction_id)
+
+        if status:
+            query += " AND otl.status = ?"
+            params.append(status)
+
+        query += " ORDER BY otl.id"
+        self.cursor.execute(query, params)
+
+        results = []
+        for row in self.cursor.fetchall():
+            results.append({
+                'id': row[0],
+                'orphan_transaction_id': row[1],
+                'description': row[2],
+                'account_id': row[3],
+                'account_name': row[4] if row[4] else "Unknown",
+                'debit': row[5],
+                'credit': row[6],
+                'status': row[7],
+                'transaction_id': row[8]
+            })
+
+        return results
+
+    def insert_orphan_transaction(self, reference, lines_data):
+        """
+        Insert a new orphan transaction with its lines
+
+        Args:
+            reference: Reference for this batch import (e.g., filename)
+            lines_data: List of dicts with line data (description, account_id, debit, credit)
+
+        Returns:
+            Orphan transaction ID
+        """
+        try:
+            # Start a transaction
+            self.begin_transaction()
+
+            # Insert the orphan transaction
+            import_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self.cursor.execute(
+                "INSERT INTO orphan_transactions (reference, import_date, status) VALUES (?, ?, 'new')",
+                (reference, import_date)
+            )
+            orphan_transaction_id = self.cursor.lastrowid
+
+            # Insert each line
+            for line in lines_data:
+                self.cursor.execute("""
+                    INSERT INTO orphan_transaction_lines 
+                    (orphan_transaction_id, description, account_id, debit, credit, status)
+                    VALUES (?, ?, ?, ?, ?, 'new')
+                """, (
+                    orphan_transaction_id,
+                    line.get('description', ''),
+                    line.get('account_id'),
+                    line.get('debit'),
+                    line.get('credit'),
+                ))
+
+            # Commit transaction
+            self.commit_transaction()
+            return orphan_transaction_id
+
+        except Exception as e:
+            # Rollback on error
+            self.rollback_transaction()
+            raise e
+
+    def create_transaction_from_orphans(self, description, currency_id, orphan_line_ids,
+                                        balancing_account_id, balancing_date):
+        """
+        Create a balanced transaction from orphan lines by adding a balancing entry
+
+        Args:
+            description: Transaction description
+            currency_id: Currency ID
+            orphan_line_ids: List of orphan line IDs to include
+            balancing_account_id: Account to use for balancing
+            balancing_date: Date for the balancing entry
+
+        Returns:
+            New transaction ID
+        """
+        try:
+            # Start a transaction
+            self.begin_transaction()
+
+            # Get all the orphan lines
+            orphan_lines = []
+            for line_id in orphan_line_ids:
+                self.cursor.execute("""
+                    SELECT description, account_id, debit, credit
+                    FROM orphan_transaction_lines
+                    WHERE id = ? AND status = 'new'
+                """, (line_id,))
+
+                line = self.cursor.fetchone()
+                if not line:
+                    raise ValueError(f"Orphan line {line_id} not found or already processed")
+
+                orphan_lines.append({
+                    'id': line_id,
+                    'description': line[0],
+                    'account_id': line[1],
+                    'debit': line[2] or 0,
+                    'credit': line[3] or 0
+                })
+
+            # Calculate the imbalance
+            total_debit = sum(line['debit'] for line in orphan_lines)
+            total_credit = sum(line['credit'] for line in orphan_lines)
+            imbalance = total_debit - total_credit
+
+            # Create the new transaction
+            self.cursor.execute("INSERT INTO transactions (description, currency_id) VALUES (?, ?)",
+                                (description, currency_id))
+            transaction_id = self.cursor.lastrowid
+
+            # Add all orphan lines to the transaction
+            for line in orphan_lines:
+                self.cursor.execute("""
+                    INSERT INTO transaction_lines
+                    (transaction_id, account_id, debit, credit, date, classification_id)
+                    VALUES (?, ?, ?, ?, ?, NULL)
+                """, (
+                    transaction_id,
+                    line['account_id'],
+                    line['debit'] or None,
+                    line['credit'] or None,
+                    balancing_date,  # Use the balancing date for consistency
+                    None
+                ))
+
+                # Mark the orphan line as consumed
+                self.cursor.execute("""
+                    UPDATE orphan_transaction_lines
+                    SET status = 'consumed', transaction_id = ?
+                    WHERE id = ?
+                """, (transaction_id, line['id']))
+
+            # Add balancing entry if needed
+            if abs(imbalance) > 0.001:  # Use small epsilon for floating point comparison
+                if imbalance > 0:
+                    # Need a credit to balance
+                    self.cursor.execute("""
+                        INSERT INTO transaction_lines
+                        (transaction_id, account_id, debit, credit, date, classification_id)
+                        VALUES (?, ?, NULL, ?, ?, NULL)
+                    """, (transaction_id, balancing_account_id, imbalance, balancing_date))
+                else:
+                    # Need a debit to balance
+                    self.cursor.execute("""
+                        INSERT INTO transaction_lines
+                        (transaction_id, account_id, debit, credit, date, classification_id)
+                        VALUES (?, ?, ?, NULL, ?, NULL)
+                    """, (transaction_id, balancing_account_id, abs(imbalance), balancing_date))
+
+            # Commit the transaction
+            self.commit_transaction()
+            return transaction_id
+
+        except Exception as e:
+            # Rollback on error
+            self.rollback_transaction()
+            raise e
+
+    def update_orphan_transaction_status(self, orphan_transaction_id, status):
+        """Update the status of an orphan transaction"""
+        if status not in ('new', 'processed', 'ignored'):
+            raise ValueError(f"Invalid status: {status}")
+
+        self.cursor.execute(
+            "UPDATE orphan_transactions SET status = ? WHERE id = ?",
+            (status, orphan_transaction_id)
+        )
+        self.conn.commit()
+
+    def update_orphan_line_status(self, orphan_line_id, status):
+        """Update the status of an orphan transaction line"""
+        if status not in ('new', 'consumed', 'ignored'):
+            raise ValueError(f"Invalid status: {status}")
+
+        self.cursor.execute(
+            "UPDATE orphan_transaction_lines SET status = ? WHERE id = ?",
+            (status, orphan_line_id)
+        )
+        self.conn.commit()
+
+        def filter_accounts(self, category_filter=None, name_filter=None, nature_filter=None):
+            """Filter accounts by category, name, and/or nature"""
+            query = """
+                SELECT a.id, a.name, c.name as category, cu.name as currency, a.nature
+                FROM accounts a
+                JOIN cat c ON a.cat_id = c.id
+                LEFT JOIN currency cu ON a.default_currency_id = cu.id
+                WHERE 1=1
+            """
+            params = []
+
+            if category_filter:
+                query += " AND c.name = ?"
+                params.append(category_filter)
+
+            if name_filter:
+                query += " AND a.name LIKE ?"
+                params.append(f"%{name_filter}%")
+
+            if nature_filter:
+                query += " AND a.nature = ?"
+                params.append(nature_filter)
+
+            query += " ORDER BY a.name"
+
+            self.cursor.execute(query, params)
+            return self.cursor.fetchall()
 
 # Initialize the database
 db = Database('finance.db')
