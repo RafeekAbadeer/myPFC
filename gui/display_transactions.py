@@ -1130,27 +1130,40 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
 
     # At the end of your wizard setup:
     def on_current_id_changed(current_id):
-        if current_id == 1 and not credit_line_widgets:  # Credit page
-            try:
-                total_amount = float(total_amount_edit.text() or 0)
-                if total_amount > 0:
-                    line_data = add_credit_line(total_amount)
-                    # Make the account combo box have immediate focus
+        if current_id == 1:  # Credit page
+            # Only add a line if no credit lines exist yet
+            if len(credit_line_widgets) == 0:
+                try:
+                    total_amount = float(total_amount_edit.text() or 0)
+                    if total_amount > 0:
+                        line_data = add_credit_line(total_amount)
+                        # Make the account combo box have immediate focus
+                        line_data['account'].setFocus()
+                        line_data['amount'].textChanged.emit(line_data['amount'].text())  # Trigger update
+                    else:
+                        line_data = add_credit_line()
+                        line_data['account'].setFocus()
+                except (ValueError, TypeError):
+                    line_data = add_credit_line()
                     line_data['account'].setFocus()
-                    line_data['amount'].textChanged.emit(line_data['amount'].text())  # Trigger update
-            except (ValueError, TypeError):
-                line_data = add_credit_line()
-                line_data['account'].setFocus()
-        elif current_id == 2 and not debit_line_widgets:  # Debit page
-            try:
-                total_amount = float(total_amount_edit.text() or 0)
-                if total_amount > 0:
-                    line_data = add_debit_line(total_amount)
+        elif current_id == 2:  # Debit page
+            # Only add a line if no debit lines exist yet
+            if len(debit_line_widgets) == 0:
+                try:
+                    total_amount = float(total_amount_edit.text() or 0)
+                    if total_amount > 0:
+                        line_data = add_debit_line(total_amount)
+                        line_data['account'].setFocus()
+                        line_data['amount'].textChanged.emit(line_data['amount'].text())  # Trigger update
+                    else:
+                        line_data = add_debit_line()
+                        line_data['account'].setFocus()
+                except (ValueError, TypeError):
+                    line_data = add_debit_line()
                     line_data['account'].setFocus()
-                    line_data['amount'].textChanged.emit(line_data['amount'].text())  # Trigger update
-            except (ValueError, TypeError):
-                line_data = add_debit_line()
-                line_data['account'].setFocus()
+
+    # Connect the page change handler to create default lines
+    wizard.currentIdChanged.connect(on_current_id_changed)
 
     # Connect to total amount changes
     total_amount_edit.textChanged.connect(update_transaction_totals)
