@@ -4,7 +4,7 @@ from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon
 from PyQt5.QtCore import Qt, QSortFilterProxyModel, QSize
 from gui.dialog_utils import show_entity_dialog
 from database import db
-
+from gui.export_utils import export_table_data
 
 def get_selected_row_data(table_view):
     """Helper function to get data from selected row"""
@@ -104,17 +104,21 @@ def display_accounts(content_frame, toolbar):
     edit_action = QAction(QIcon('icons/edit.png'), "Edit", toolbar)
     delete_action = QAction(QIcon('icons/delete.png'), "Delete", toolbar)
     filter_action = QAction(QIcon('icons/filter.png'), "Filter", toolbar)
+    export_action = QAction(QIcon('icons/export.png'), "Export", toolbar)
 
     toolbar.insertAction(actions_to_keep[0], add_action)
     toolbar.insertAction(actions_to_keep[0], edit_action)
     toolbar.insertAction(actions_to_keep[0], delete_action)
     toolbar.insertAction(actions_to_keep[0], filter_action)
+    toolbar.insertAction(actions_to_keep[0], export_action)  # Add export action to toolbar
 
     # Connect actions
     add_action.triggered.connect(lambda: add_account(content_frame, table_view))
     edit_action.triggered.connect(lambda: edit_account(content_frame, table_view))
     delete_action.triggered.connect(lambda: delete_account(content_frame, table_view))
     filter_action.triggered.connect(lambda: filter_accounts(content_frame, table_view))
+    export_action.triggered.connect(
+        lambda: export_table_data(content_frame, table_view, "accounts_export"))
 
     # Load data
     load_accounts(table_view)

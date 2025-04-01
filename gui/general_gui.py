@@ -28,7 +28,7 @@ class Application(QMainWindow):
         )
         # Apply window state if available
         window_state = self.config.get('window_state', 0)  # 0 = normal state
-        if window_state == Qt.WindowMaximized:
+        if window_state == 2: # Qt.WindowMaximized is 2
             self.setWindowState(Qt.WindowMaximized)
         # Set initial splitter position if available
         self.splitter_pos = self.config.get('splitter_position', [200, 600])
@@ -56,7 +56,7 @@ class Application(QMainWindow):
             config = self.load_config()
             # Store if maximized (2) or normal (0)
             if self.windowState() & Qt.WindowMaximized:
-                config['window_state'] = Qt.WindowMaximized
+                config['window_state'] = 2
             else:
                 config['window_state'] = 0  # Normal state
             self.save_config(config)
@@ -223,7 +223,7 @@ class Application(QMainWindow):
         # Save any other settings here
         config = self.load_config()
         if self.windowState() & Qt.WindowMaximized:
-            config['window_state'] = Qt.WindowMaximized
+            config['window_state'] = 2
         else:
             config['window_state'] = 0
             # Only save size if not maximized
@@ -403,7 +403,6 @@ class Application(QMainWindow):
             ("Credit Limit", "credit_limit", float)
         ], save_credit_card)
 
-
     def add_transaction(self):
         self.open_input_dialog("Add Transaction", [
             ("Description", "description"),
@@ -414,13 +413,11 @@ class Application(QMainWindow):
         self.open_input_dialog("Add Classification", [("Classification Name", "name")],
                                self.database.insert_classification)
 
-
     def save_transaction(self, data):
         description = data['description']
         currency_id = self.database.get_currency_id(data['currency'])
         transaction_id = self.database.insert_transaction(description, currency_id)
         self.add_transaction_lines(transaction_id)
-
 
     def add_transaction_lines(self, transaction_id):
         self.open_input_dialog("Add Transaction Line", [
@@ -430,7 +427,6 @@ class Application(QMainWindow):
             ("Date", "date")
         ], lambda data: self.save_transaction_line(transaction_id, data))
 
-
     def save_transaction_line(self, transaction_id, data):
         account_id = self.database.get_account_id(data['account'])
         debit = data['debit'] if 'debit' in data else None
@@ -438,10 +434,8 @@ class Application(QMainWindow):
         date = data['date']
         self.database.insert_transaction_line(transaction_id, account_id, debit, credit, date)
 
-
     def show_about(self):
         QMessageBox.about(self, "About", "Personal Finance Manager\nVersion 1.0\nCopyright 2025")
-
 
     def open_input_dialog(self, title, fields, save_command):
         dialog = QWidget()
