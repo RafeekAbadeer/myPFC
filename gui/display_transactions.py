@@ -1281,9 +1281,14 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
         account_label = QLabel("Account:")
         top_row.addWidget(account_label, 1)
 
-        # Account selection
+        # Account selection filtered by nature
         account_combo = QComboBox()
-        accounts = [acc[1] for acc in db.get_all_accounts()]
+
+        # Get appropriate accounts based on line type (debit/credit)
+        nature_filter = 'debit' if is_debit else 'credit'
+        accounts_data = db.get_accounts_by_nature(nature_filter)
+
+        accounts = [acc[1] for acc in accounts_data]
         account_combo.addItems(accounts)
         make_combo_editable(account_combo, accounts)
         top_row.addWidget(account_combo, 3)
@@ -1421,14 +1426,20 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
 
         # Pre-fill the line if we are editing and have line data
         if line_data:
-            # We'll use direct setting instead of trying to find indices
-
             # Set account directly
             if 'account_name' in line_data and line_data['account_name']:
                 # Block signals during setup
                 account_combo.blockSignals(True)
                 account_combo.setCurrentText(line_data['account_name'])
                 account_combo.blockSignals(False)
+
+                # Check if the account is valid for this line type
+                current_account_name = line_data['account_name']
+                if current_account_name not in accounts:
+                    # If we're editing an existing line whose account is no longer valid for this type,
+                    # we should still show it in the dropdown
+                    account_combo.addItem(current_account_name)
+                    account_combo.setCurrentText(current_account_name)
 
                 # Set classifications options for this account
                 account_id = line_data['account_id']

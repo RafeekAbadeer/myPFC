@@ -201,6 +201,32 @@ class Database:
         #self.conn.commit()
         return self.cursor.lastrowid
 
+    def get_accounts_by_nature(self, nature=None):
+        """
+        Get accounts filtered by their nature
+
+        Args:
+            nature: 'debit', 'credit', or None (for all accounts)
+
+        Returns:
+            List of accounts matching the nature criteria
+        """
+        query = """
+            SELECT a.id, a.name
+            FROM accounts a
+        """
+
+        params = []
+
+        if nature:
+            query += " WHERE a.nature = ? OR a.nature = 'both'"
+            params.append(nature)
+
+        query += " ORDER BY a.name"
+
+        self.cursor.execute(query, params)
+        return self.cursor.fetchall()
+
     def get_transactions(self):
         self.cursor.execute("SELECT * FROM transactions")
         return self.cursor.fetchall()
