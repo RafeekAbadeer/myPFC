@@ -1,1 +1,11 @@
-{"color_mode": "dark"}
+{
+    "color_mode": "dark",
+    "window_width": 930,
+    "window_height": 611,
+    "splitter_position": [
+        290,
+        1630
+    ],
+    "expanded_items": [],
+    "window_state": 0
+}

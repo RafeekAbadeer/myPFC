@@ -4,16 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="Modify transaction - not able to save, classification displayed, but when none, some entry is displayed.">
+    <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="Tested: Added account term">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dark_mode.qss" beforeDir="false" afterPath="$PROJECT_DIR$/dark_mode.qss" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/future_features.md" beforeDir="false" afterPath="$PROJECT_DIR$/future_features.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/display_accounts.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_accounts.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/display_categories.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_categories.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/display_classifications.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_classifications.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/display_credit_cards.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_credit_cards.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/display_currencies.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_currencies.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/display_transactions.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_transactions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/finance.db" beforeDir="false" afterPath="$PROJECT_DIR$/finance.db" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/gui/general_gui.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/general_gui.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -451,7 +445,47 @@
       <option name="project" value="LOCAL" />
       <updated>1742544660446</updated>
     </task>
-    <option name="localTasksCounter" value="45" />
+    <task id="LOCAL-00045" summary="Layouts fixed">
+      <option name="closed" value="true" />
+      <created>1742548530785</created>
+      <option name="number" value="00045" />
+      <option name="presentableId" value="LOCAL-00045" />
+      <option name="project" value="LOCAL" />
+      <updated>1742548530785</updated>
+    </task>
+    <task id="LOCAL-00046" summary="Fixed bug: new transaction doesn't automatically show new credit/debit lines.">
+      <option name="closed" value="true" />
+      <created>1743184276675</created>
+      <option name="number" value="00046" />
+      <option name="presentableId" value="LOCAL-00046" />
+      <option name="project" value="LOCAL" />
+      <updated>1743184276675</updated>
+    </task>
+    <task id="LOCAL-00047" summary="Not tested: orphan transactions database adjustment.">
+      <option name="closed" value="true" />
+      <created>1743190757218</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1743190757218</updated>
+    </task>
+    <task id="LOCAL-00048" summary="Tested: Account with nature">
+      <option name="closed" value="true" />
+      <created>1743525947875</created>
+      <option name="number" value="00048" />
+      <option name="presentableId" value="LOCAL-00048" />
+      <option name="project" value="LOCAL" />
+      <updated>1743525947875</updated>
+    </task>
+    <task id="LOCAL-00049" summary="Tested: Added account term">
+      <option name="closed" value="true" />
+      <created>1743531875323</created>
+      <option name="number" value="00049" />
+      <option name="presentableId" value="LOCAL-00049" />
+      <option name="project" value="LOCAL" />
+      <updated>1743531875323</updated>
+    </task>
+    <option name="localTasksCounter" value="50" />
     <servers />
   </component>
   <component name="UnknownFeatures">
@@ -469,7 +503,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="First trial" />
     <MESSAGE value="Changing the GUI library" />
     <MESSAGE value="color mode" />
     <MESSAGE value="Modularizign GUI" />
@@ -490,24 +523,29 @@
     <MESSAGE value="Modify transaction" />
     <MESSAGE value="Modify transaction - not able to save, classifications aren't displayed" />
     <MESSAGE value="Modify transaction - not able to save, classification displayed, but when none, some entry is displayed." />
-    <option name="LAST_COMMIT_MESSAGE" value="Modify transaction - not able to save, classification displayed, but when none, some entry is displayed." />
+    <MESSAGE value="Layouts fixed" />
+    <MESSAGE value="Fixed bug: new transaction doesn't automatically show new credit/debit lines." />
+    <MESSAGE value="Not tested: orphan transactions database adjustment." />
+    <MESSAGE value="Tested: Account with nature" />
+    <MESSAGE value="Tested: Added account term" />
+    <option name="LAST_COMMIT_MESSAGE" value="Tested: Added account term" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/gui/display_transactions.py</url>
-          <line>1680</line>
+          <line>1704</line>
           <option name="timeStamp" value="39" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/gui/display_transactions.py</url>
-          <line>1993</line>
+          <line>2017</line>
           <option name="timeStamp" value="40" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/gui/display_transactions.py</url>
-          <line>1975</line>
+          <line>1999</line>
           <option name="timeStamp" value="41" />
         </line-breakpoint>
       </breakpoints>

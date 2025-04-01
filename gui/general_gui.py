@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
     QSplitter, QFrame, QCheckBox, QSizePolicy, QLabel, QAbstractItemView, QLineEdit, QComboBox, QPushButton
 )
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, QByteArray, QSettings, QModelIndex
 from database import Database
 from gui.display_categories import display_categories
 from gui.display_accounts import display_accounts
@@ -19,25 +19,134 @@ class Application(QMainWindow):
         super().__init__()
         self.config_file = 'config.json'
         self.setWindowTitle("Personal Finance Manager")
-        self.resize(800, 600)
+        # Load configuration
+        self.config = self.load_config()
+        # Apply settings from config
+        self.resize(
+            self.config.get('window_width', 800),
+            self.config.get('window_height', 600)
+        )
+        # Apply window state if available
+        window_state = self.config.get('window_state', 0)  # 0 = normal state
+        if window_state == Qt.WindowMaximized:
+            self.setWindowState(Qt.WindowMaximized)
+        # Set initial splitter position if available
+        self.splitter_pos = self.config.get('splitter_position', [200, 600])
         self.database = Database("finance.db")
-        self.color_mode = self.load_color_mode()
+        self.color_mode = self.config.get('color_mode', 'dark')
         self.dark_mode_enabled = self.color_mode == 'dark'
         self.apply_color_mode(self.color_mode)
         self.create_menu()
         self.create_widgets()
 
+    # Add a method to save window size
+    def resizeEvent(self, event):
+        # Update config with new window size
+        if not (self.windowState() & Qt.WindowMaximized):
+            config = self.load_config()
+            config['window_width'] = self.width()
+            config['window_height'] = self.height()
+            self.save_config(config)
+        super().resizeEvent(event)
+
+    # Add a method to save window state
+    def changeEvent(self, event):
+        if event.type() == event.WindowStateChange:
+            # Save the new window state when it changes
+            config = self.load_config()
+            # Store if maximized (2) or normal (0)
+            if self.windowState() & Qt.WindowMaximized:
+                config['window_state'] = Qt.WindowMaximized
+            else:
+                config['window_state'] = 0  # Normal state
+            self.save_config(config)
+        super().changeEvent(event)
+
     def save_color_mode(self, mode):
-        with open(self.config_file, 'w') as config_f:
-            json.dump({'color_mode': mode}, config_f)
+        config = self.load_config()
+        config['color_mode'] = mode
+        self.save_config(config)
 
     def load_color_mode(self):
+        config = self.load_config()
+        return config.get('color_mode', 'dark')
+
+    def save_tree_state(self):
+        """Save the expansion state of the tree view"""
+        expanded_items = []
+        model = self.tree.model()
+
+        def process_item(parent_index, parent_path=""):
+            rows = model.rowCount(parent_index)
+            for row in range(rows):
+                current_index = model.index(row, 0, parent_index)
+                current_item = model.itemFromIndex(current_index)
+                current_path = f"{parent_path}/{current_item.text()}" if parent_path else current_item.text()
+
+                if self.tree.isExpanded(current_index):
+                    expanded_items.append(current_path)
+
+                # Process children
+                process_item(current_index, current_path)
+
+        # Start processing from root
+        process_item(QModelIndex())
+
+        # Save the expanded items
+        config = self.load_config()
+        config['expanded_items'] = expanded_items
+        self.save_config(config)
+
+    def restore_tree_state(self):
+        """Restore the expansion state of the tree view"""
+        config = self.load_config()
+        expanded_items = config.get('expanded_items', [])
+
+        if not expanded_items:
+            return
+
+        model = self.tree.model()
+
+        def find_index_by_path(path):
+            path_parts = path.split('/')
+            current_index = QModelIndex()
+
+            for part in path_parts:
+                found = False
+                rows = model.rowCount(current_index)
+
+                for row in range(rows):
+                    index = model.index(row, 0, current_index)
+                    item = model.itemFromIndex(index)
+
+                    if item.text() == part:
+                        current_index = index
+                        found = True
+                        break
+
+                if not found:
+                    return None
+
+            return current_index
+
+        # Expand all the saved items
+        for path in expanded_items:
+            index = find_index_by_path(path)
+            if index:
+                self.tree.setExpanded(index, True)
+
+    def save_config(self, config):
+        """Save configuration to file"""
+        with open(self.config_file, 'w') as config_f:
+            json.dump(config, config_f, indent=4)
+
+    def load_config(self):
+        """Load configuration from file"""
         try:
             with open(self.config_file, 'r') as config_f:
-                config = json.load(config_f)
-                return config['color_mode']
+                return json.load(config_f)
         except FileNotFoundError:
-            return 'dark'
+            return {'color_mode': 'dark', 'expanded_items': []}
 
     def create_menu(self):
         menu_bar = self.menuBar()
@@ -59,6 +168,7 @@ class Application(QMainWindow):
 
     def create_widgets(self):
         splitter = QSplitter(Qt.Horizontal)
+        splitter.splitterMoved.connect(self.on_splitter_moved)
         self.left_section = QWidget()
         self.left_layout = QVBoxLayout(self.left_section)
         self.left_layout.setContentsMargins(10, 10, 0, 10)
@@ -92,10 +202,36 @@ class Application(QMainWindow):
         self.content_frame = QFrame()
         self.right_layout.addWidget(self.content_frame)
         splitter.addWidget(self.right_section)
+        self.splitter = splitter
+        if hasattr(self, 'splitter_pos') and len(self.splitter_pos) == 2:
+            splitter.setSizes(self.splitter_pos)
         splitter.setStretchFactor(1, 3)
         self.setCentralWidget(splitter)
         self.setup_treeview()
         self.tree.selectionModel().selectionChanged.connect(self.tree_selection_event)
+        self.restore_tree_state()
+
+    def on_splitter_moved(self, pos, index):
+        # Save the splitter position
+        config = self.load_config()
+        config['splitter_position'] = [pos, self.splitter.width() - pos]
+        self.save_config(config)
+
+    def closeEvent(self, event):
+        # Save tree state before closing
+        self.save_tree_state()
+        # Save any other settings here
+        config = self.load_config()
+        if self.windowState() & Qt.WindowMaximized:
+            config['window_state'] = Qt.WindowMaximized
+        else:
+            config['window_state'] = 0
+            # Only save size if not maximized
+            config['window_width'] = self.width()
+            config['window_height'] = self.height()
+
+        self.save_config(config)
+        event.accept()
 
     def toggle_dark_mode(self, state):
         try:
@@ -151,6 +287,16 @@ class Application(QMainWindow):
         #self.tree.setAlternatingRowColors(True)
         self.tree.setModel(model)
         #self.tree.expandAll()
+        self.tree.expanded.connect(self.on_tree_expanded)
+        self.tree.collapsed.connect(self.on_tree_collapsed)
+
+    def on_tree_expanded(self, index):
+        # Save tree state whenever an item is expanded
+        self.save_tree_state()
+
+    def on_tree_collapsed(self, index):
+        # Save tree state whenever an item is collapsed
+        self.save_tree_state()
 
     def tree_selection_event(self, selected, deselected):
         try:
