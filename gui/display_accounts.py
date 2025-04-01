@@ -135,18 +135,19 @@ def display_accounts(content_frame, toolbar):
 
 def load_accounts(table_view):
     model = QStandardItemModel()
-    model.setHorizontalHeaderLabels(["ID", "Name", "Category", "Currency", "Nature"])
+    model.setHorizontalHeaderLabels(["ID", "Name", "Category", "Currency", "Nature", "Term"])
 
     # Get accounts from database
     accounts = db.get_all_accounts()
 
     for account in accounts:
-        account_id, name, category_name, currency_name, nature = account
+        account_id, name, category_name, currency_name, nature, term = account
         id_item = QStandardItem(str(account_id))
         name_item = QStandardItem(name)
         category_item = QStandardItem(category_name)
         currency_item = QStandardItem(currency_name)
         nature_item = QStandardItem(nature)
+        term_item = QStandardItem(term)
 
         # Set alignment for the ID column
         id_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -157,8 +158,9 @@ def load_accounts(table_view):
         category_item.setData(category_name.lower(), Qt.UserRole)  # Sort category case-insensitive
         currency_item.setData(currency_name.lower(), Qt.UserRole)  # Sort currency case-insensitive
         nature_item.setData(nature.lower(), Qt.UserRole)  # Sort nature case-insensitive
+        term_item.setData(term.lower(), Qt.UserRole)  # Sort term case-insensitive
 
-        model.appendRow([id_item, name_item, category_item, currency_item, nature_item])
+        model.appendRow([id_item, name_item, category_item, currency_item, nature_item, term_item])
 
     # Create proxy model for sorting
     proxy_model = QSortFilterProxyModel()
@@ -173,12 +175,14 @@ def add_account(parent, table_view):
     categories = [cat[1] for cat in db.get_all_categories()]
     currencies = [curr[1] for curr in db.get_all_currencies()]
     nature_options = ["both", "debit", "credit"]
+    term_options = ["undefined", "short term", "medium term", "long term"]
 
     fields = [
         {'id': 'name', 'label': 'Account Name', 'type': 'text', 'required': True},
         {'id': 'category', 'label': 'Category', 'type': 'combobox', 'options': categories, 'required': True},
         {'id': 'currency', 'label': 'Default Currency', 'type': 'combobox', 'options': currencies, 'required': True},
         {'id': 'nature', 'label': 'Account Nature', 'type': 'combobox', 'options': nature_options, 'required': True},
+        {'id': 'term', 'label': 'Account Term', 'type': 'combobox', 'options': term_options, 'required': True},
         {'id': 'is_credit_card', 'label': 'Is Credit Card', 'type': 'checkbox', 'required': False},
         {'id': 'credit_limit', 'label': 'Credit Limit', 'type': 'number', 'required': False,
          'depends_on': ('is_credit_card', True)},
@@ -195,9 +199,10 @@ def add_account(parent, table_view):
             category_id = db.get_category_id(data['category'])
             currency_id = db.get_currency_id(data['currency'])
             nature = data.get('nature', 'both')
+            term = data.get('term', 'undefined')
 
             # Insert account
-            account_id = db.insert_account(data['name'], category_id, currency_id, nature)
+            account_id = db.insert_account(data['name'], category_id, currency_id, nature, term)
 
             # If it's a credit card, add credit card details
             if data.get('is_credit_card', False):
@@ -224,6 +229,7 @@ def edit_account(parent, table_view):
     categories = [cat[1] for cat in db.get_all_categories()]
     currencies = [curr[1] for curr in db.get_all_currencies()]
     nature_options = ["both", "debit", "credit"]
+    term_options = ["undefined", "short term", "medium term", "long term"]
 
     # Start with basic fields
     fields = [
@@ -231,6 +237,7 @@ def edit_account(parent, table_view):
         {'id': 'category', 'label': 'Category', 'type': 'combobox', 'options': categories, 'required': True},
         {'id': 'currency', 'label': 'Default Currency', 'type': 'combobox', 'options': currencies, 'required': True},
         {'id': 'nature', 'label': 'Account Nature', 'type': 'combobox', 'options': nature_options, 'required': True},
+        {'id': 'term', 'label': 'Account Term', 'type': 'combobox', 'options': term_options, 'required': True},
     ]
 
     # Add "is_credit_card" checkbox for all accounts
@@ -261,6 +268,7 @@ def edit_account(parent, table_view):
         'category': row_data["Category"],
         'currency': row_data["Currency"],
         'nature': account_data['nature'] if 'nature' in account_data else 'both',
+        'term': account_data['term'] if 'term' in account_data else 'undefined',
         'is_credit_card': is_credit_card
     }
 
@@ -287,9 +295,10 @@ def edit_account(parent, table_view):
             category_id = db.get_category_id(data['category'])
             currency_id = db.get_currency_id(data['currency'])
             nature = data.get('nature', 'both')
+            term = data.get('term', 'undefined')
 
             # Update account
-            db.update_account(account_id, data['name'], category_id, currency_id, nature)
+            db.update_account(account_id, data['name'], category_id, currency_id, nature, term)
 
             # Handle credit card status change
             if data.get('is_credit_card', False):
@@ -413,11 +422,16 @@ def filter_accounts(parent, table_view):
     # Add nature options for filtering
     nature_options = ["All", "both", "debit", "credit"]
 
+    # Add term options for filtering
+    term_options = ["All", "undefined", "short term", "medium term", "long term"]
+
     fields = [
         {'id': 'category_filter', 'label': 'Filter by Category', 'type': 'combobox',
          'options': categories, 'required': False},
         {'id': 'nature_filter', 'label': 'Filter by Nature', 'type': 'combobox',
          'options': nature_options, 'required': False},
+        {'id': 'term_filter', 'label': 'Filter by Term', 'type': 'combobox',
+         'options': term_options, 'required': False},
         {'id': 'name_filter', 'label': 'Filter by Name', 'type': 'text', 'required': False}
     ]
 
@@ -425,23 +439,25 @@ def filter_accounts(parent, table_view):
 
     if data:
         model = QStandardItemModel()
-        model.setHorizontalHeaderLabels(["ID", "Name", "Category", "Currency", "Nature"])
+        model.setHorizontalHeaderLabels(["ID", "Name", "Category", "Currency", "Nature", "Term"])
 
         # Get accounts from database with potential filters
         category_filter = None if data.get('category_filter') == "All Categories" else data.get('category_filter')
         nature_filter = None if data.get('nature_filter') == "All" else data.get('nature_filter')
+        term_filter = None if data.get('term_filter') == "All" else data.get('term_filter')
         name_filter = data.get('name_filter', '')
 
         # You'll need to implement this method in your database class
-        accounts = db.filter_accounts(category_filter, name_filter, nature_filter)
+        accounts = db.filter_accounts(category_filter, name_filter, nature_filter, term_filter)
 
         for account in accounts:
-            account_id, name, category_name, currency_name, nature = account
+            account_id, name, category_name, currency_name, nature, term = account
             id_item = QStandardItem(str(account_id))
             name_item = QStandardItem(name)
             category_item = QStandardItem(category_name)
             currency_item = QStandardItem(currency_name)
             nature_item = QStandardItem(nature)
+            term_item = QStandardItem(term)
 
             # Set alignment for the ID column
             id_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -452,8 +468,9 @@ def filter_accounts(parent, table_view):
             category_item.setData(category_name.lower(), Qt.UserRole)
             currency_item.setData(currency_name.lower(), Qt.UserRole)
             nature_item.setData(nature.lower(), Qt.UserRole)
+            term_item.setData(term.lower(), Qt.UserRole)
 
-            model.appendRow([id_item, name_item, category_item, currency_item, nature_item])
+            model.appendRow([id_item, name_item, category_item, currency_item, nature_item, term_item])
 
         # Create proxy model for sorting
         proxy_model = QSortFilterProxyModel()

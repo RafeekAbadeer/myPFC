@@ -31,6 +31,7 @@ class Database:
                 cat_id INTEGER NOT NULL,
                 default_currency_id INTEGER,
                 nature TEXT CHECK (nature IN ('debit', 'credit', 'both')) DEFAULT 'both',
+                term TEXT CHECK (term IN ('long term', 'medium term', 'short term', 'undefined')) DEFAULT 'undefined',
                 FOREIGN KEY (cat_id) REFERENCES cat (id),
                 FOREIGN KEY (default_currency_id) REFERENCES currency (id) ON DELETE SET NULL
             )
@@ -185,8 +186,10 @@ class Database:
         self.conn.commit()
         return self.cursor.lastrowid
 
-    def insert_account(self, name, cat_id, default_currency_id=None, nature='both'):
-        self.cursor.execute("INSERT INTO accounts (name, cat_id, default_currency_id, nature) VALUES (?, ?, ?, ?)", (name, cat_id, default_currency_id, nature))
+    def insert_account(self, name, cat_id, default_currency_id=None, nature='both', term='undefined'):
+        self.cursor.execute(
+            "INSERT INTO accounts (name, cat_id, default_currency_id, nature, term) VALUES (?, ?, ?, ?, ?)",
+            (name, cat_id, default_currency_id, nature, term))
         self.conn.commit()
         return self.cursor.lastrowid
 
@@ -283,9 +286,10 @@ class Database:
         self.cursor.execute("DELETE FROM currency WHERE id = ?", (id,))
         self.conn.commit()
 
-    def update_account(self, id, name, cat_id, default_currency_id=None, nature='both'):
-        self.cursor.execute("UPDATE accounts SET name = ?, cat_id = ?, default_currency_id = ?, nature = ? WHERE id = ?",
-                            (name, cat_id, default_currency_id, nature, id))
+    def update_account(self, id, name, cat_id, default_currency_id=None, nature='both', term='undefined'):
+        self.cursor.execute(
+            "UPDATE accounts SET name = ?, cat_id = ?, default_currency_id = ?, nature = ?, term = ? WHERE id = ?",
+            (name, cat_id, default_currency_id, nature, term, id))
         self.conn.commit()
 
     def delete_account(self, id):
@@ -372,7 +376,7 @@ class Database:
 
     def get_all_accounts(self):
         self.cursor.execute("""
-            SELECT a.id, a.name, c.name as category, cu.name as currency, a.nature
+            SELECT a.id, a.name, c.name as category, cu.name as currency, a.nature, a.term
             FROM accounts a
             JOIN cat c ON a.cat_id = c.id
             LEFT JOIN currency cu ON a.default_currency_id = cu.id
@@ -407,7 +411,7 @@ class Database:
 
     def get_account_details(self, account_id):
         self.cursor.execute("""
-            SELECT a.id, a.name, a.cat_id, a.default_currency_id, c.name, cu.name, a.nature
+            SELECT a.id, a.name, a.cat_id, a.default_currency_id, c.name, cu.name, a.nature, a.term
             FROM accounts a
             JOIN cat c ON a.cat_id = c.id
             LEFT JOIN currency cu ON a.default_currency_id = cu.id
@@ -422,7 +426,8 @@ class Database:
                 'currency_id': result[3],
                 'category_name': result[4],
                 'currency_name': result[5],
-                'nature': result[6]
+                'nature': result[6],
+                'term': result[7]
             }
         return None
 
@@ -929,10 +934,10 @@ class Database:
         )
         self.conn.commit()
 
-        def filter_accounts(self, category_filter=None, name_filter=None, nature_filter=None):
-            """Filter accounts by category, name, and/or nature"""
+        def filter_accounts(self, category_filter=None, name_filter=None, nature_filter=None, term_filter=None):
+            """Filter accounts by category, name, nature, and/or term"""
             query = """
-                SELECT a.id, a.name, c.name as category, cu.name as currency, a.nature
+                SELECT a.id, a.name, c.name as category, cu.name as currency, a.nature, a.term
                 FROM accounts a
                 JOIN cat c ON a.cat_id = c.id
                 LEFT JOIN currency cu ON a.default_currency_id = cu.id
@@ -951,6 +956,10 @@ class Database:
             if nature_filter:
                 query += " AND a.nature = ?"
                 params.append(nature_filter)
+
+            if term_filter:
+                query += " AND a.term = ?"
+                params.append(term_filter)
 
             query += " ORDER BY a.name"
 
