@@ -6,7 +6,8 @@ from PyQt5.QtPrintSupport import QPrinter
 from PyQt5.QtWidgets import QFileDialog, QMessageBox, QTableView, QHeaderView
 from PyQt5.QtCore import Qt, QRect, QSize
 
-def export_table_data(parent, table_view, default_filename=None):
+
+def export_table_data(parent, table_view, default_filename=None, export_title=None):
     """
     General function to export data from a table view
 
@@ -14,6 +15,7 @@ def export_table_data(parent, table_view, default_filename=None):
         parent: Parent widget for dialogs
         table_view: QTableView containing the data to export
         default_filename: Optional default name for the exported file
+        export_title: Optional title for the export document
     """
     if not isinstance(table_view, QTableView):
         QMessageBox.warning(parent, "Export Error", "Invalid table view provided for export.")
@@ -23,8 +25,12 @@ def export_table_data(parent, table_view, default_filename=None):
     if not model or model.rowCount() == 0:
         QMessageBox.information(parent, "Export Info", "No data to export.")
         return
-    window_title = parent.window().windowTitle()
-    export_title = f"{window_title} Data"
+
+    # If no export title is provided, try to get one from the window title
+    if not export_title:
+        window_title = parent.window().windowTitle()
+        export_title = f"{window_title} Data"
+
     # Prepare default filename
     if not default_filename:
         default_filename = f"export_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -144,221 +150,202 @@ def export_to_excel(parent, table_view, file_path):
 
 
 def export_to_pdf(parent, table_view, file_path, title=None):
-    """Export table data to PDF file with improved formatting"""
+    """Export table data to PDF file using ReportLab"""
     try:
+        # Try to import reportlab - will be needed for PDF export
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import letter, A4, landscape
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+        from reportlab.platypus.flowables import Flowable
+        from reportlab.pdfgen.canvas import Canvas
+
+        # For page numbers
+        from reportlab.platypus.doctemplate import PageTemplate, BaseDocTemplate
+        from reportlab.platypus.frames import Frame
+
         model = table_view.model()
         rows = model.rowCount()
         columns = model.columnCount()
 
         # Get a more descriptive title if not provided
         if not title:
-            # Try to determine what kind of data we're exporting
-            window_title = parent.window().windowTitle()
-            title = f"{window_title} - Exported Data"
+            title = "Data Export"
 
-        # Set up the printer
-        printer = QPrinter(QPrinter.HighResolution)
-        printer.setOutputFormat(QPrinter.PdfFormat)
-        printer.setOutputFileName(file_path)
+        # Create the full title
+        full_title = title
 
-        # Calculate total content width to determine orientation
-        font_metrics = QFontMetrics(QFont("Arial", 10))
-        total_width = 0
+        # Get current date and time for the report
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+        # Get headers
+        headers = []
         for column in range(columns):
-            header_text = model.headerData(column, Qt.Horizontal) or f"Column {column + 1}"
-            col_width = font_metrics.horizontalAdvance(header_text) + 20
+            header_text = model.headerData(column, Qt.Horizontal)
+            headers.append(header_text if header_text else f"Column {column + 1}")
 
-            # Sample a few rows to estimate width needed
-            for row in range(min(10, rows)):
-                index = model.index(row, column)
-                data = str(model.data(index) or "")
-                col_width = max(col_width, font_metrics.horizontalAdvance(data) + 20)
-
-            total_width += col_width
-
-        # Determine if landscape is really needed based on content width
-        page_width = 595  # Approximate A4 width in points
-        if total_width > page_width * 0.9:  # Only use landscape if we really need it
-            printer.setOrientation(QPrinter.Landscape)
-        else:
-            printer.setOrientation(QPrinter.Portrait)
-
-        # Set up the painter
-        painter = QPainter()
-        if not painter.begin(printer):
-            QMessageBox.critical(parent, "Export Error", "Could not open PDF file for writing.")
-            return
-
-        # Get actual page rect after orientation is set
-        page_rect = printer.pageRect()
-        page_width = page_rect.width()
-        page_height = page_rect.height()
-
-        # Calculate cell dimensions
-        font_metrics = painter.fontMetrics()
-        row_height = int(font_metrics.height() + 10)
-        header_height = int(row_height * 1.5)
-
-        # Calculate column widths based on content
-        col_widths = []
-        total_width = 0
-
-        for column in range(columns):
-            header_text = model.headerData(column, Qt.Horizontal) or f"Column {column + 1}"
-            col_width = font_metrics.horizontalAdvance(header_text) + 20
-
-            # Check data in all rows for this column
-            for row in range(rows):
-                index = model.index(row, column)
-                data = str(model.data(index) or "")
-                col_width = max(col_width, font_metrics.horizontalAdvance(data) + 20)
-
-            # Ensure minimum width
-            col_width = max(col_width, 80)
-
-            col_widths.append(col_width)
-            total_width += col_width
-
-        # Scale column widths to fit page if needed
-        margin = 40
-        available_width = page_width - (2 * margin)
-
-        if total_width > available_width:
-            scale_factor = available_width / total_width
-            col_widths = [int(w * scale_factor) for w in col_widths]
-            total_width = sum(col_widths)
-
-        # Set margins and table position
-        x_start = int((page_width - total_width) / 2)  # Center the table
-        y_start = margin
-
-        # Draw title
-        title_font = painter.font()
-        title_font.setPointSize(14)
-        title_font.setBold(True)
-        painter.setFont(title_font)
-        title_rect = QRect(margin, y_start, int(page_width - 2 * margin), int(row_height * 2))
-        painter.drawText(title_rect, Qt.AlignCenter, title)
-
-        # Reset font for table data
-        normal_font = painter.font()
-        normal_font.setPointSize(10)
-        normal_font.setBold(False)
-        painter.setFont(normal_font)
-
-        # Move y position down for table start
-        y_start += int(row_height * 3)
-
-        # Draw table headers
-        painter.setPen(Qt.black)
-        x_pos = x_start
-
-        # Draw header background
-        header_bg_color = QColor(200, 200, 200)  # Light gray
-        header_rect = QRect(x_start, y_start, total_width, header_height)
-        painter.fillRect(header_rect, header_bg_color)
-
-        # Draw header text and vertical lines
-        for column in range(columns):
-            header_text = model.headerData(column, Qt.Horizontal) or f"Column {column + 1}"
-            cell_rect = QRect(int(x_pos), y_start, int(col_widths[column]), header_height)
-
-            # Draw cell border
-            painter.drawRect(cell_rect)
-
-            # Draw header text
-            text_rect = QRect(int(x_pos + 5), int(y_start + 5),
-                              int(col_widths[column] - 10), int(header_height - 10))
-            painter.drawText(text_rect, Qt.AlignCenter, header_text)
-
-            x_pos += col_widths[column]
-
-        # Draw horizontal line under headers
-        painter.drawLine(x_start, int(y_start + header_height),
-                         int(x_start + total_width), int(y_start + header_height))
-
-        # Draw data rows
-        y_pos = int(y_start + header_height)
-        rows_per_page = int((page_height - y_pos - margin - 20) / row_height)  # Leave space for footer
-        current_page = 1
-
-        # Alternating row colors
-        row_colors = [
-            QColor(255, 255, 255),  # White
-            QColor(240, 240, 240)  # Light gray
-        ]
+        # Get data and calculate column widths based on content
+        table_data = [headers]  # Start with headers
+        col_max_widths = [len(str(h)) for h in headers]  # Track max width of each column
 
         for row in range(rows):
-            # Check if we need a new page
-            if row > 0 and row % rows_per_page == 0:
-                # Add page number at bottom of current page
-                footer_text = f"Page {current_page}"
-                footer_rect = QRect(margin, int(page_height - margin),
-                                    int(page_width - 2 * margin), margin)
-                painter.drawText(footer_rect, Qt.AlignRight | Qt.AlignBottom, footer_text)
-
-                printer.newPage()
-                y_pos = margin
-                current_page += 1
-
-                # Redraw headers on new page
-                x_pos = x_start
-                header_rect = QRect(x_start, y_pos, total_width, header_height)
-                painter.fillRect(header_rect, header_bg_color)
-
-                for column in range(columns):
-                    header_text = model.headerData(column, Qt.Horizontal) or f"Column {column + 1}"
-                    cell_rect = QRect(int(x_pos), y_pos, int(col_widths[column]), header_height)
-                    painter.drawRect(cell_rect)
-                    text_rect = QRect(int(x_pos + 5), int(y_pos + 5),
-                                      int(col_widths[column] - 10), int(header_height - 10))
-                    painter.drawText(text_rect, Qt.AlignCenter, header_text)
-                    x_pos += col_widths[column]
-
-                y_pos += header_height
-
-            x_pos = x_start
-
-            # Set row background color (alternating)
-            row_rect = QRect(x_start, y_pos, total_width, row_height)
-            painter.fillRect(row_rect, row_colors[row % 2])
-
-            # Draw cells in this row
+            row_data = []
             for column in range(columns):
                 index = model.index(row, column)
-                data = str(model.data(index) or "")
+                data = model.data(index)
+                cell_value = data if data is not None else ""
+                row_data.append(cell_value)
 
-                cell_rect = QRect(int(x_pos), int(y_pos), int(col_widths[column]), int(row_height))
+                # Update maximum column width
+                col_max_widths[column] = max(col_max_widths[column], len(str(cell_value)))
 
-                # Draw cell border
-                painter.drawRect(cell_rect)
+            table_data.append(row_data)
 
-                # Draw cell text
-                text_rect = QRect(int(x_pos + 5), int(y_pos + 5),
-                                  int(col_widths[column] - 10), int(row_height - 10))
+        # Determine if we need landscape mode by analyzing data
+        # Calculate average content width
+        avg_char_width = 0.08 * inch  # Approximate width per character
+        total_estimated_width = sum(width * avg_char_width for width in col_max_widths) + (
+                    0.5 * inch * columns)  # Add spacing
 
-                # Align numbers right, text left
-                alignment = Qt.AlignRight if is_numeric(data) else Qt.AlignLeft
-                alignment |= Qt.AlignVCenter
+        # A4 sizes: 8.27 x 11.69 inches
+        portrait_width = 8.27 * 0.8  # Leave margins
 
-                painter.drawText(text_rect, alignment, data)
+        # Use landscape if content is too wide for portrait
+        use_landscape = total_estimated_width > portrait_width
+        page_size = landscape(A4) if use_landscape else A4
 
-                x_pos += col_widths[column]
+        # Create a custom document template with header and footer
+        class MyDocTemplate(BaseDocTemplate):
+            def __init__(self, filename, **kw):
+                self.allowSplitting = 0
+                BaseDocTemplate.__init__(self, filename, **kw)
+                template = PageTemplate('normal', [Frame(
+                    self.leftMargin, self.bottomMargin, self.width, self.height, id='normal'
+                )])
+                self.addPageTemplates([template])
 
-            y_pos += row_height
+            def afterPage(self):
+                self.canv.saveState()
+                # Add footer with page numbers and timestamp
+                self.canv.setFont('Helvetica', 8)
+                footer_text = f"Page {self.canv.getPageNumber()} - Generated: {current_time}"
+                self.canv.drawRightString(
+                    self.width + self.leftMargin,
+                    0.5 * inch,
+                    footer_text
+                )
+                self.canv.restoreState()
 
-        # Draw final page number
-        footer_text = f"Page {current_page}"
-        if current_page > 1:
-            footer_text += f" of {current_page}"
+        # Create the PDF document
+        doc = MyDocTemplate(
+            file_path,
+            pagesize=page_size,
+            rightMargin=0.5 * inch,
+            leftMargin=0.5 * inch,
+            topMargin=0.75 * inch,
+            bottomMargin=0.75 * inch
+        )
 
-        footer_rect = QRect(margin, int(page_height - margin),
-                            int(page_width - 2 * margin), margin)
-        painter.drawText(footer_rect, Qt.AlignRight | Qt.AlignBottom, footer_text)
+        # Create a list of flowables for the document
+        elements = []
 
-        painter.end()
+        # Add title
+        styles = getSampleStyleSheet()
+        title_style = styles['Title']
+        elements.append(Paragraph(full_title, title_style))
+        elements.append(Spacer(1, 0.25 * inch))
+
+        # Create table
+        table = Table(table_data)
+
+        # Style the table
+        style = TableStyle([
+            # Header formatting
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+
+            # Body formatting
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ('TOPPADDING', (0, 1), (-1, -1), 6),
+
+            # Alignment for numeric columns (this is generic, can be refined)
+            # Number columns are right-aligned
+            ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+            # Text columns are left-aligned
+            ('ALIGN', (0, 1), (0, -1), 'LEFT'),
+
+            # Table grid
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+
+            # Zebra stripes for rows
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.white]),
+        ])
+
+        # Apply specific numeric column detection
+        # Check multiple data rows to determine if columns are numeric
+        num_rows_to_check = min(5, rows)
+        for col in range(columns):
+            numeric_count = 0
+
+            for row_idx in range(num_rows_to_check):
+                if row_idx >= rows:
+                    break
+
+                index = model.index(row_idx, col)
+                cell_value = model.data(index)
+
+                # If it's numeric, increment counter
+                if is_numeric(str(cell_value)):
+                    numeric_count += 1
+
+            # If majority of checked cells are numeric, keep right alignment
+            # Otherwise switch to left alignment
+            if numeric_count <= num_rows_to_check / 2:
+                style.add('ALIGN', (col, 1), (col, -1), 'LEFT')
+
+        table.setStyle(style)
+
+        # Calculate column widths based on content
+        available_width = doc.width
+        min_col_width = 0.4 * inch
+
+        # Convert character counts to inches with padding
+        col_widths = []
+        for width in col_max_widths:
+            # Convert character count to inches (approximate)
+            w = width * avg_char_width + 0.3 * inch  # Add padding
+            w = max(w, min_col_width)  # Ensure minimum width
+            col_widths.append(w)
+
+        # Check if total width exceeds available width
+        total_width = sum(col_widths)
+        if total_width > available_width:
+            # Scale down proportionally
+            scale = available_width / total_width
+            col_widths = [w * scale for w in col_widths]
+
+        # Make the table with calculated widths
+        auto_width_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+        auto_width_table.setStyle(style)
+
+        elements.append(auto_width_table)
+
+        # Build the PDF
+        doc.build(elements)
+
         QMessageBox.information(parent, "Export Success", f"Data exported successfully to {file_path}")
+    except ImportError:
+        QMessageBox.critical(parent, "Export Error",
+                             "PDF export requires the reportlab package.\n"
+                             "Please install it with: pip install reportlab")
     except Exception as e:
         QMessageBox.critical(parent, "Export Error", f"Failed to export to PDF: {str(e)}")
 

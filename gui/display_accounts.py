@@ -118,7 +118,7 @@ def display_accounts(content_frame, toolbar):
     delete_action.triggered.connect(lambda: delete_account(content_frame, table_view))
     filter_action.triggered.connect(lambda: filter_accounts(content_frame, table_view))
     export_action.triggered.connect(
-        lambda: export_table_data(content_frame, table_view, "accounts_export"))
+        lambda: export_accounts_data(content_frame, table_view))
 
     # Load data
     load_accounts(table_view)
@@ -484,6 +484,63 @@ def filter_accounts(parent, table_view):
         # Set the proxy model to the table view
         table_view.setModel(proxy_model)
 
+def export_accounts_data(parent, table_view):
+    """
+    Create a temporary table with all visible data plus classifications and export it
+    """
+    # Get the current model (which may have filters applied)
+    current_model = table_view.model()
+    if not current_model or current_model.rowCount() == 0:
+        QMessageBox.information(parent, "Export Info", "No data to export.")
+        return
+
+    # Create a temporary table view for export
+    temp_table = QTableView()
+    temp_model = QStandardItemModel()
+
+    # Set headers including classifications
+    temp_model.setHorizontalHeaderLabels(["ID", "Name", "Category", "Currency", "Nature", "Term", "Classifications"])
+
+    # Copy data from the current visible/filtered table
+    for row in range(current_model.rowCount()):
+        row_data = []
+        account_id = None
+
+        # Copy existing columns
+        for col in range(current_model.columnCount()):
+            index = current_model.index(row, col)
+            value = current_model.data(index)
+            item = QStandardItem(str(value))
+
+            # Get the account ID from the first column
+            if col == 0:
+                account_id = int(value)
+                # Set alignment for ID column
+                item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+            row_data.append(item)
+
+        # Add classifications column
+        if account_id:
+            # Get classifications for this account
+            classifications = db.get_classifications_for_account(account_id)
+            class_names = [c[1] for c in classifications]
+            class_text = ", ".join(class_names) if class_names else ""
+
+            class_item = QStandardItem(class_text)
+            row_data.append(class_item)
+        else:
+            # Shouldn't happen, but just in case
+            row_data.append(QStandardItem(""))
+
+        temp_model.appendRow(row_data)
+
+    # Set the model to the temporary table
+    temp_table.setModel(temp_model)
+
+    # Export the data
+    export_table_data(parent, temp_table, "accounts_export", "Accounts List")
+
 def assign_classification(parent, accounts_table, class_table):
     """Show dialog to assign a classification to the selected account"""
     # Always get the currently selected account
@@ -573,3 +630,5 @@ def unassign_classification(parent, accounts_table, class_table):
             QMessageBox.information(parent, "Success", "Classification removed successfully.")
         except Exception as e:
             QMessageBox.critical(parent, "Error", f"Failed to remove classification: {e}")
+
+
