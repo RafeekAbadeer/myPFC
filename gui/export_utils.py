@@ -1,5 +1,6 @@
 import os
 import csv
+import json
 import datetime
 from PyQt5.QtGui import QPainter, QColor, QFont, QFontMetrics
 from PyQt5.QtPrintSupport import QPrinter
@@ -31,20 +32,45 @@ def export_table_data(parent, table_view, default_filename=None, export_title=No
         window_title = parent.window().windowTitle()
         export_title = f"{window_title} Data"
 
+        # Load last export path from config
+    config_file = 'config.json'
+    try:
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+        last_export_path = config.get('last_export_path', '')
+    except:
+        last_export_path = ''
+
+    if not last_export_path:
+        last_export_path = os.path.expanduser("~")
+
     # Prepare default filename
     if not default_filename:
         default_filename = f"export_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    else:
+        default_filename = f"{default_filename}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     # Get file path from user
     file_path, selected_filter = QFileDialog.getSaveFileName(
         parent,
         "Export Data",
-        os.path.expanduser(f"~/{default_filename}"),
+        os.path.join(last_export_path, f"~/{default_filename}"),
         "CSV Files (*.csv);;Excel Files (*.xlsx);;PDF Files (*.pdf)"
     )
 
     if not file_path:
         return  # User canceled
+
+    # Save the new export path
+    try:
+        directory = os.path.dirname(file_path)
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+        config['last_export_path'] = directory
+        with open(config_file, 'w') as f:
+            json.dump(config, f, indent=4)
+    except Exception as e:
+        print(f"Error saving export path: {e}")
 
     # Determine export format based on file extension
     if file_path.lower().endswith('.csv'):
