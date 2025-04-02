@@ -495,20 +495,97 @@ def filter_categories(parent, table_view):
     QMessageBox.information(parent, "Filter", "Filter functionality will be implemented soon.")
 
 
-def export_transactions_data(parent, table_view):
+def export_transactions_data(parent, transactions_table):
     """
-    Export categories data to CSV, Excel, or PDF
+    Export all filtered transactions data with summarized credit and debit information,
+    regardless of pagination. Includes unique account:classification pairs.
     """
     from gui.export_utils import export_table_data
 
-    # Get the current model (which may have filters applied)
-    current_model = table_view.model()
-    if not current_model or current_model.rowCount() == 0:
+    # Get current filter parameters from the table
+    filter_params = getattr(transactions_table, 'filter_params', None)
+
+    # Create a temporary table view for export with enhanced columns
+    temp_table = QTableView()
+    temp_model = QStandardItemModel()
+
+    # Set headers including credit and debit summaries
+    temp_model.setHorizontalHeaderLabels([
+        "ID", "Date", "Description", "Amount", "Currency",
+        "Credit Accounts", "Debit Accounts"
+    ])
+
+    # Get ALL transactions that match the current filter (ignoring pagination)
+    transactions = get_transactions_with_summary(limit=None, offset=0, filter_params=filter_params)
+
+    if not transactions:
         QMessageBox.information(parent, "Export Info", "No data to export.")
         return
 
-    # Export the data directly - categories table is simple enough to export as-is
-    export_table_data(parent, table_view, "transactions_export", "Transactions List")
+    # Process all transactions
+    for transaction in transactions:
+        transaction_id = transaction['id']
+        date = transaction['date']
+        description = transaction['description']
+        amount = transaction['amount']
+        currency = transaction['currency']
+
+        # Create row items
+        id_item = QStandardItem(str(transaction_id))
+        date_item = QStandardItem(date)
+        description_item = QStandardItem(description)
+        amount_item = QStandardItem(f"{amount:.2f}")
+        currency_item = QStandardItem(currency)
+
+        # Set alignment for ID and amount
+        id_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        amount_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        # Get transaction lines for credit and debit summaries
+        lines = db.get_transaction_lines(transaction_id)
+
+        # Use sets to track unique account:classification pairs
+        credit_accounts = set()
+        debit_accounts = set()
+
+        for line in lines:
+            account_id = line[2]
+            debit = line[3] if line[3] else 0
+            credit = line[4] if line[4] else 0
+            classification_id = line[7]
+
+            # Get account name
+            account_name = get_cached_account_name(account_id)
+
+            # Get classification name if available
+            classification_name = get_cached_classification_name(classification_id)
+
+            # Create account + classification text
+            account_text = account_name
+            if classification_name:
+                account_text += f": {classification_name}"
+
+            if credit > 0:
+                credit_accounts.add(account_text)
+            elif debit > 0:
+                debit_accounts.add(account_text)
+
+        # Create items for credit and debit summaries
+        # Join with line breaks which will work better for wrapping in PDF
+        credit_summary = QStandardItem("\n".join(sorted(credit_accounts)))
+        debit_summary = QStandardItem("\n".join(sorted(debit_accounts)))
+
+        # Add all items to the row
+        temp_model.appendRow([
+            id_item, date_item, description_item, amount_item, currency_item,
+            credit_summary, debit_summary
+        ])
+
+    # Set the model to the temporary table
+    temp_table.setModel(temp_model)
+
+    # Export the data (using our existing PDF export with word wrap support)
+    export_table_data(parent, temp_table, "transactions_export", "Transactions Journal")
 
 
 def load_transactions(table_view, page=1, page_size=None, filter_params=None, select_transaction_id=None):
@@ -2336,245 +2413,3 @@ def filter_transactions(parent, table_view):
         # At the end of load_transactions function, add:
         if hasattr(table_view, 'update_pagination_info'):
             table_view.update_pagination_info()
-
-
-def export_to_pdf(parent, table_view, file_path, title=None):
-    """Export table data to PDF file using ReportLab"""
-    try:
-        # Try to import reportlab - will be needed for PDF export
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import letter, A4, landscape
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import inch
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
-        from reportlab.platypus.flowables import Flowable
-        from reportlab.pdfgen.canvas import Canvas
-
-        # For page numbers
-        from reportlab.platypus.doctemplate import PageTemplate, BaseDocTemplate
-        from reportlab.platypus.frames import Frame
-
-        model = table_view.model()
-        rows = model.rowCount()
-        columns = model.columnCount()
-
-        # Get a more descriptive title if not provided
-        if not title:
-            title = "Data Export"
-
-        # Create the full title
-        full_title = title
-
-        # Get current date and time for the report
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        # Get headers
-        headers = []
-        for column in range(columns):
-            header_text = model.headerData(column, Qt.Horizontal)
-            headers.append(header_text if header_text else f"Column {column + 1}")
-
-        # Get data and calculate column widths based on content
-        table_data = []
-        styles = getSampleStyleSheet()
-
-        # Create a paragraph style for cells that allows wrapping
-        cell_style = ParagraphStyle(
-            'CellStyle',
-            parent=styles['Normal'],
-            wordWrap='CJK',  # Use CJK wrapping for better results
-            leading=12  # Space between lines
-        )
-
-        # Define which columns should allow wrapping
-        wrappable_columns = ['Description', 'Classifications', 'Credit Accounts', 'Debit Accounts']
-
-        # Prepare header row
-        header_row = []
-        for header in headers:
-            # Create non-wrapping header cell
-            header_para = Paragraph(f"<b>{header}</b>", styles['Normal'])
-            header_row.append(header_para)
-
-        table_data.append(header_row)
-
-        # Initial column width estimates
-        # Start with a base width for all columns
-        base_width = 0.8 * inch
-
-        # Initialize column widths with minimums based on header content
-        col_widths = [max(len(str(h)) * 0.1 * inch, base_width) for h in headers]
-
-        # Special wider allocation for columns that need wrapping
-        for i, header in enumerate(headers):
-            if header in wrappable_columns:
-                col_widths[i] = max(col_widths[i], 1.5 * inch)  # Give more space to wrappable columns
-
-        # Process data rows
-        for row in range(rows):
-            row_data = []
-            for column in range(columns):
-                index = model.index(row, column)
-                data = model.data(index)
-                cell_value = data if data is not None else ""
-
-                # Determine whether this column should have wrapping text
-                is_wrappable = headers[column] in wrappable_columns
-
-                if is_wrappable and str(cell_value).strip():
-                    # Create paragraph for cell to enable wrapping
-                    cell_para = Paragraph(str(cell_value).replace('\n', '<br/>'), cell_style)
-                    row_data.append(cell_para)
-
-                    # Update width estimate based on content
-                    content_lines = str(cell_value).split('\n')
-                    max_line_length = max(len(line) for line in content_lines) if content_lines else 0
-
-                    # Use a reasonable estimate: each character is about 0.08-0.1 inches
-                    estimated_width = max_line_length * 0.08 * inch
-
-                    # Only expand the column if needed
-                    if estimated_width > col_widths[column]:
-                        col_widths[column] = min(estimated_width, 3.5 * inch)  # Cap at max width
-                else:
-                    # Regular cell text - no wrapping
-                    row_data.append(str(cell_value))
-
-                    # Only update width if this cell would need more space and it's not a wrappable column
-                    if not is_wrappable:
-                        cell_width = len(str(cell_value)) * 0.1 * inch
-                        if cell_width > col_widths[column]:
-                            col_widths[column] = min(cell_width + 0.1 * inch, 2 * inch)  # Add padding but cap width
-
-            table_data.append(row_data)
-
-        # Determine if we need landscape mode by analyzing the total width
-        total_estimated_width = sum(col_widths) + (0.1 * inch * columns)  # Add spacing
-
-        # A4 sizes: 8.27 x 11.69 inches
-        portrait_width = 8.27 * 0.8  # Leave margins
-
-        # Use landscape if content is too wide for portrait
-        use_landscape = total_estimated_width > portrait_width
-        page_size = landscape(A4) if use_landscape else A4
-
-        # Create a custom document template with header and footer
-        class MyDocTemplate(BaseDocTemplate):
-            def __init__(self, filename, **kw):
-                self.allowSplitting = 0
-                BaseDocTemplate.__init__(self, filename, **kw)
-                template = PageTemplate('normal', [Frame(
-                    self.leftMargin, self.bottomMargin, self.width, self.height, id='normal'
-                )])
-                self.addPageTemplates([template])
-
-            def afterPage(self):
-                self.canv.saveState()
-                # Add footer with page numbers and timestamp
-                self.canv.setFont('Helvetica', 8)
-                footer_text = f"Page {self.canv.getPageNumber()} - Generated: {current_time}"
-                self.canv.drawRightString(
-                    self.width + self.leftMargin,
-                    0.5 * inch,
-                    footer_text
-                )
-                self.canv.restoreState()
-
-        # Create the PDF document
-        doc = MyDocTemplate(
-            file_path,
-            pagesize=page_size,
-            rightMargin=0.5 * inch,
-            leftMargin=0.5 * inch,
-            topMargin=0.75 * inch,
-            bottomMargin=0.75 * inch
-        )
-
-        # Create a list of flowables for the document
-        elements = []
-
-        # Add title
-        title_style = styles['Title']
-        elements.append(Paragraph(full_title, title_style))
-        elements.append(Spacer(1, 0.25 * inch))
-
-        # Check if we need to adjust column widths to fit available space
-        available_width = doc.width
-        total_width = sum(col_widths)
-
-        if total_width > available_width:
-            # Calculate how much we need to shrink
-            scale_factor = available_width / total_width
-
-            # Prioritize keeping non-wrappable columns (usually shorter content)
-            # Scale wrappable columns more aggressively
-            non_wrappable_scale = min(1.0, scale_factor * 1.2)  # Try to preserve non-wrappable cols
-            wrappable_scale = scale_factor  # Shrink wrappable cols more
-
-            # Make sure we don't exceed available width
-            adjusted_widths = []
-            for i, width in enumerate(col_widths):
-                if headers[i] in wrappable_columns:
-                    adjusted_widths.append(width * wrappable_scale)
-                else:
-                    adjusted_widths.append(width * non_wrappable_scale)
-
-            # Final check to ensure we fit
-            if sum(adjusted_widths) > available_width:
-                # Apply uniform scaling as a fallback
-                adjusted_widths = [w * scale_factor for w in col_widths]
-
-            col_widths = adjusted_widths
-
-        # Make the table with calculated widths
-        table = Table(table_data, colWidths=col_widths, repeatRows=1)
-
-        # Style the table
-        style = TableStyle([
-            # Header formatting
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('TOPPADDING', (0, 0), (-1, 0), 8),
-
-            # Body formatting
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-            ('TOPPADDING', (0, 1), (-1, -1), 6),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),  # Align text to top for better wrapping
-
-            # Default alignments
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),  # Default left align for all
-
-            # Table grid
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-
-            # Zebra stripes for rows
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.white]),
-        ])
-
-        # Apply specific column alignments
-        # 1. ID columns are usually first and should be right-aligned
-        if columns > 0:
-            style.add('ALIGN', (0, 1), (0, -1), 'RIGHT')
-
-        # 2. Look for typical numeric columns like Amount, Price, etc.
-        for i, header in enumerate(headers):
-            if header in ['Amount', 'Price', 'Total', 'Credit Limit', 'Exchange Rate']:
-                style.add('ALIGN', (i, 1), (i, -1), 'RIGHT')
-
-        table.setStyle(style)
-        elements.append(table)
-
-        # Build the PDF
-        doc.build(elements)
-
-        QMessageBox.information(parent, "Export Success", f"Data exported successfully to {file_path}")
-    except ImportError:
-        QMessageBox.critical(parent, "Export Error",
-                             "PDF export requires the reportlab package.\n"
-                             "Please install it with: pip install reportlab")
-    except Exception as e:
-        QMessageBox.critical(parent, "Export Error", f"Failed to export to PDF: {str(e)}")
