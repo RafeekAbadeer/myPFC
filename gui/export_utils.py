@@ -197,36 +197,39 @@ def export_to_pdf(parent, table_view, file_path, title=None):
             leading=12  # Space between lines
         )
 
+        # Create header style that prevents wrapping
         header_style = ParagraphStyle(
             'HeaderStyle',
             parent=styles['Normal'],
             fontName='Helvetica-Bold',
-            wordWrap='CJK',  # CJK handles wrapping, but we'll set a min width to prevent it
+            wordWrap='LO',  # 'LO' ensures it doesn't wrap
             alignment=1,  # Center alignment
             leading=14
         )
 
-        # Replace the header row creation code with:
+        # Create header row with non-wrapping style
         header_row = []
         for header in headers:
-            # Create paragraph for header with non-wrapping style
             header_para = Paragraph(f"<b>{header}</b>", header_style)
             header_row.append(header_para)
 
-        table_data.append(header_row)
+        table_data.append(header_row)  # Add header row ONLY ONCE
 
-        # Update the col_max_widths calculation to ensure headers don't wrap:
+        # Initialize column widths with minimum widths needed for headers
         col_max_widths = []
         for header in headers:
-            # Calculate minimum width needed for header text with extra padding
-            min_width = len(str(header)) * 0.12 * inch + 0.3 * inch  # More padding to prevent wrapping
+            # More generous spacing for headers to prevent wrapping
+            # Shorter headers need proportionally more padding
+            header_len = len(str(header))
+            if header_len <= 10:  # For shorter headers like Category, Currency, Nature
+                # More aggressive padding for short headers
+                min_width = header_len * 0.15 * inch + 0.5 * inch
+            else:
+                # Standard padding for longer headers
+                min_width = header_len * 0.12 * inch + 0.3 * inch
             col_max_widths.append(min_width)
 
-        table_data.append(header_row)
-
-        # Process data rows
-        col_max_widths = [len(str(h)) * 0.12 * inch for h in headers]  # Initial width based on headers
-
+        # Process data rows - allow content to expand column width if needed
         for row in range(rows):
             row_data = []
             for column in range(columns):
@@ -234,23 +237,29 @@ def export_to_pdf(parent, table_view, file_path, title=None):
                 data = model.data(index)
                 cell_value = data if data is not None else ""
 
-                # Special handling for columns with likely multiline content
-                if headers[column] in ['Credit Accounts', 'Debit Accounts', 'Description']:
+                # Special handling for columns that need wrapping
+                if headers[column] in ['Credit Accounts', 'Debit Accounts', 'Description', 'Classifications']:
                     # Create paragraph for cell to enable wrapping
                     cell_para = Paragraph(str(cell_value).replace('\n', '<br/>'), cell_style)
                     row_data.append(cell_para)
 
                     # Update max width - approximately measure text
-                    content_width = max(len(line) for line in str(cell_value).split('\n')) * 0.1 * inch
+                    content_lines = str(cell_value).split('\n')
+                    max_line_length = max(len(line) for line in content_lines) if content_lines else 0
+                    content_width = max_line_length * 0.1 * inch
                     col_max_widths[column] = max(col_max_widths[column], content_width)
                 else:
-                    # Regular cell text
-                    row_data.append(str(cell_value))
+                    # For regular text, create a non-wrapping paragraph to ensure content stays in its column
+                    if len(str(cell_value)) > 20:  # Only wrap very long content
+                        cell_para = Paragraph(str(cell_value), cell_style)
+                        row_data.append(cell_para)
+                    else:
+                        # Use plain strings for short content to prevent spillover
+                        row_data.append(str(cell_value))
 
-                    # Update max width based on content
-                    content_width = len(str(cell_value)) * 0.12 * inch
-                    if content_width > col_max_widths[column]:
-                        col_max_widths[column] = content_width
+                    # Update max width and ensure enough space for content
+                    content_width = len(str(cell_value)) * 0.12 * inch + 0.1 * inch  # Add small padding
+                    col_max_widths[column] = max(col_max_widths[column], content_width)
 
             table_data.append(row_data)
 
