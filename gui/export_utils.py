@@ -197,12 +197,30 @@ def export_to_pdf(parent, table_view, file_path, title=None):
             leading=12  # Space between lines
         )
 
-        # Prepare header row with styled paragraphs
+        header_style = ParagraphStyle(
+            'HeaderStyle',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            wordWrap='CJK',  # CJK handles wrapping, but we'll set a min width to prevent it
+            alignment=1,  # Center alignment
+            leading=14
+        )
+
+        # Replace the header row creation code with:
         header_row = []
         for header in headers:
-            # Create paragraph for header - make it bold
-            header_para = Paragraph(f"<b>{header}</b>", styles['Normal'])
+            # Create paragraph for header with non-wrapping style
+            header_para = Paragraph(f"<b>{header}</b>", header_style)
             header_row.append(header_para)
+
+        table_data.append(header_row)
+
+        # Update the col_max_widths calculation to ensure headers don't wrap:
+        col_max_widths = []
+        for header in headers:
+            # Calculate minimum width needed for header text with extra padding
+            min_width = len(str(header)) * 0.12 * inch + 0.3 * inch  # More padding to prevent wrapping
+            col_max_widths.append(min_width)
 
         table_data.append(header_row)
 
@@ -231,7 +249,8 @@ def export_to_pdf(parent, table_view, file_path, title=None):
 
                     # Update max width based on content
                     content_width = len(str(cell_value)) * 0.12 * inch
-                    col_max_widths[column] = max(col_max_widths[column], content_width)
+                    if content_width > col_max_widths[column]:
+                        col_max_widths[column] = content_width
 
             table_data.append(row_data)
 
