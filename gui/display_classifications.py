@@ -61,20 +61,38 @@ def display_classifications(content_frame, toolbar):
     edit_action = QAction(QIcon('icons/edit.png'), "Edit", toolbar)
     delete_action = QAction(QIcon('icons/delete.png'), "Delete", toolbar)
     filter_action = QAction(QIcon('icons/filter.png'), "Filter", toolbar)
+    export_action = QAction(QIcon('icons/export.png'), "Export", toolbar)
 
     toolbar.insertAction(actions_to_keep[0], add_action)
     toolbar.insertAction(actions_to_keep[0], edit_action)
     toolbar.insertAction(actions_to_keep[0], delete_action)
     toolbar.insertAction(actions_to_keep[0], filter_action)
+    toolbar.insertAction(actions_to_keep[0], export_action)
 
     # Connect actions
     add_action.triggered.connect(lambda: add_classification(content_frame, table_view))
     edit_action.triggered.connect(lambda: edit_classification(content_frame, table_view))
     delete_action.triggered.connect(lambda: delete_classification(content_frame, table_view))
     filter_action.triggered.connect(lambda: filter_classifications(content_frame, table_view))
+    export_action.triggered.connect(lambda: export_classifications_data(content_frame, table_view))
 
     # Load data
     load_classifications(table_view)
+
+def export_classifications_data(parent, table_view):
+    """
+    Export categories data to CSV, Excel, or PDF
+    """
+    from gui.export_utils import export_table_data
+
+    # Get the current model (which may have filters applied)
+    current_model = table_view.model()
+    if not current_model or current_model.rowCount() == 0:
+        QMessageBox.information(parent, "Export Info", "No data to export.")
+        return
+
+    # Export the data directly - categories table is simple enough to export as-is
+    export_table_data(parent, table_view, "classifications_export", "Classifications List")
 
 
 def load_classifications(table_view):

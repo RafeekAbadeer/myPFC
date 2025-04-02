@@ -185,28 +185,110 @@ def export_to_pdf(parent, table_view, file_path, title=None):
             header_text = model.headerData(column, Qt.Horizontal)
             headers.append(header_text if header_text else f"Column {column + 1}")
 
-        # Get data and calculate column widths based on content
-        table_data = [headers]  # Start with headers
-        col_max_widths = [len(str(h)) for h in headers]  # Track max width of each column
+        # Identify the column indices for our problematic headers
+        # We'll use these indices to assign specific widths
+        problem_headers = ['Category', 'Currency', 'Nature', 'Term']
+        problem_indices = [i for i, h in enumerate(headers) if h in problem_headers]
 
+        # Define which columns should allow wrapping
+        wrappable_columns = ['Description', 'Classifications', 'Credit Accounts', 'Debit Accounts']
+
+        # Get data and calculate column widths based on content
+        table_data = []
+        styles = getSampleStyleSheet()
+
+        # Create a paragraph style for cells that allows wrapping
+        cell_style = ParagraphStyle(
+            'CellStyle',
+            parent=styles['Normal'],
+            wordWrap='CJK',  # Use CJK wrapping for better results
+            leading=12  # Space between lines
+        )
+
+        # Create a style for headers - non-wrapping
+        header_style = ParagraphStyle(
+            'HeaderStyle',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            wordWrap='LO',  # LO = don't wrap long words
+            leading=14
+        )
+
+        # Prepare header row - avoiding Paragraph for problematic headers
+        header_row = []
+        for i, header in enumerate(headers):
+            if i in problem_indices:
+                # Use plain string for problem headers to prevent wrapping
+                header_row.append(f"<b>{header}</b>")
+            else:
+                # Use paragraph for other headers
+                header_para = Paragraph(f"<b>{header}</b>", header_style)
+                header_row.append(header_para)
+
+        table_data.append(header_row)
+
+        # Initial column width estimates
+        # Start with a base width for all columns
+        base_width = 0.8 * inch
+
+        # Calculate minimum width needed for each header
+        header_widths = []
+        for i, header in enumerate(headers):
+            # Problem headers get extra space to ensure no wrapping
+            if i in problem_indices:
+                width = len(header) * 0.12 * inch + 0.15 * inch  # Additional padding
+            else:
+                width = len(header) * 0.1 * inch
+            header_widths.append(max(width, base_width))
+
+        # Special wider allocation for columns that need wrapping
+        for i, header in enumerate(headers):
+            if header in wrappable_columns:
+                header_widths[i] = max(header_widths[i], 1.5 * inch)  # Give more space to wrappable columns
+
+        # Process data rows
+        data_widths = [0] * columns  # Track width needed for data
         for row in range(rows):
             row_data = []
             for column in range(columns):
                 index = model.index(row, column)
                 data = model.data(index)
                 cell_value = data if data is not None else ""
-                row_data.append(cell_value)
 
-                # Update maximum column width
-                col_max_widths[column] = max(col_max_widths[column], len(str(cell_value)))
+                # Determine whether this column should have wrapping text
+                is_wrappable = headers[column] in wrappable_columns
+
+                if is_wrappable and str(cell_value).strip():
+                    # Create paragraph for cell to enable wrapping
+                    cell_para = Paragraph(str(cell_value).replace('\n', '<br/>'), cell_style)
+                    row_data.append(cell_para)
+
+                    # Update width estimate based on content
+                    content_lines = str(cell_value).split('\n')
+                    max_line_length = max(len(line) for line in content_lines) if content_lines else 0
+
+                    # Use a reasonable estimate: each character is about 0.08-0.1 inches
+                    estimated_width = max_line_length * 0.08 * inch
+                    data_widths[column] = max(data_widths[column], min(estimated_width, 3.5 * inch))
+                else:
+                    # Regular cell text - no wrapping
+                    row_data.append(str(cell_value))
+
+                    # Update width for data cells (non-wrapping)
+                    cell_width = len(str(cell_value)) * 0.1 * inch
+                    data_widths[column] = max(data_widths[column], min(cell_width, 2 * inch))
 
             table_data.append(row_data)
 
-        # Determine if we need landscape mode by analyzing data
-        # Calculate average content width
-        avg_char_width = 0.08 * inch  # Approximate width per character
-        total_estimated_width = sum(width * avg_char_width for width in col_max_widths) + (
-                    0.5 * inch * columns)  # Add spacing
+        # Use the maximum of header width or data width for each column
+        col_widths = [max(header_widths[i], data_widths[i]) for i in range(columns)]
+
+        # Ensure problem headers get enough space to avoid wrapping
+        for i in problem_indices:
+            col_widths[i] = max(col_widths[i], len(headers[i]) * 0.15 * inch)
+
+        # Determine if we need landscape mode by analyzing the total width
+        total_estimated_width = sum(col_widths) + (0.1 * inch * columns)  # Add spacing
 
         # A4 sizes: 8.27 x 11.69 inches
         portrait_width = 8.27 * 0.8  # Leave margins
@@ -251,13 +333,65 @@ def export_to_pdf(parent, table_view, file_path, title=None):
         elements = []
 
         # Add title
-        styles = getSampleStyleSheet()
         title_style = styles['Title']
         elements.append(Paragraph(full_title, title_style))
         elements.append(Spacer(1, 0.25 * inch))
 
-        # Create table
-        table = Table(table_data)
+        # Check if we need to adjust column widths to fit available space
+        available_width = doc.width
+        total_width = sum(col_widths)
+
+        if total_width > available_width:
+            # Calculate how much we need to shrink
+            scale_factor = available_width / total_width
+
+            # Three-tiered scaling approach:
+            # 1. Problem headers: least scaling
+            # 2. Other non-wrappable columns: medium scaling
+            # 3. Wrappable columns: most scaling
+            problem_scale = min(1.0, scale_factor * 1.3)  # Try to preserve problem headers
+            non_wrappable_scale = min(1.0, scale_factor * 1.1)  # Medium preservation
+            wrappable_scale = scale_factor * 0.9  # Scale these more
+
+            # Apply scaling while ensuring minimum widths
+            adjusted_widths = []
+            for i, width in enumerate(col_widths):
+                if i in problem_indices:
+                    # Problem headers get scaled the least
+                    min_width = len(headers[i]) * 0.15 * inch  # Minimum to avoid wrapping
+                    scaled_width = max(width * problem_scale, min_width)
+                    adjusted_widths.append(scaled_width)
+                elif headers[i] in wrappable_columns:
+                    # Wrappable columns get scaled the most
+                    adjusted_widths.append(width * wrappable_scale)
+                else:
+                    # Other columns get medium scaling
+                    adjusted_widths.append(width * non_wrappable_scale)
+
+            # Final check to ensure we fit
+            if sum(adjusted_widths) > available_width:
+                # Apply uniform scaling but preserve minimums for problem headers
+                base_scaled = [w * scale_factor for w in col_widths]
+                final_widths = []
+
+                for i, width in enumerate(base_scaled):
+                    if i in problem_indices:
+                        min_width = len(headers[i]) * 0.12 * inch
+                        final_widths.append(max(width, min_width))
+                    else:
+                        final_widths.append(width)
+
+                # Last resort - if still too wide, scale everything uniformly
+                if sum(final_widths) > available_width:
+                    final_scale = available_width / sum(final_widths)
+                    adjusted_widths = [w * final_scale for w in final_widths]
+                else:
+                    adjusted_widths = final_widths
+
+            col_widths = adjusted_widths
+
+        # Make the table with calculated widths
+        table = Table(table_data, colWidths=col_widths, repeatRows=1)
 
         # Style the table
         style = TableStyle([
@@ -265,22 +399,18 @@ def export_to_pdf(parent, table_view, file_path, title=None):
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
             ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),  # Extra padding for headers
+            ('TOPPADDING', (0, 0), (-1, 0), 10),  # Extra padding for headers
 
             # Body formatting
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 1), (-1, -1), 9),
             ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
             ('TOPPADDING', (0, 1), (-1, -1), 6),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),  # Align text to top for better wrapping
 
-            # Alignment for numeric columns (this is generic, can be refined)
-            # Number columns are right-aligned
-            ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
-            # Text columns are left-aligned
-            ('ALIGN', (0, 1), (0, -1), 'LEFT'),
+            # Default alignments
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),  # Default left align for all
 
             # Table grid
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
@@ -289,54 +419,18 @@ def export_to_pdf(parent, table_view, file_path, title=None):
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.white]),
         ])
 
-        # Apply specific numeric column detection
-        # Check multiple data rows to determine if columns are numeric
-        num_rows_to_check = min(5, rows)
-        for col in range(columns):
-            numeric_count = 0
+        # Apply specific column alignments
+        # 1. ID columns are usually first and should be right-aligned
+        if columns > 0:
+            style.add('ALIGN', (0, 1), (0, -1), 'RIGHT')
 
-            for row_idx in range(num_rows_to_check):
-                if row_idx >= rows:
-                    break
-
-                index = model.index(row_idx, col)
-                cell_value = model.data(index)
-
-                # If it's numeric, increment counter
-                if is_numeric(str(cell_value)):
-                    numeric_count += 1
-
-            # If majority of checked cells are numeric, keep right alignment
-            # Otherwise switch to left alignment
-            if numeric_count <= num_rows_to_check / 2:
-                style.add('ALIGN', (col, 1), (col, -1), 'LEFT')
+        # 2. Look for typical numeric columns like Amount, Price, etc.
+        for i, header in enumerate(headers):
+            if header in ['Amount', 'Price', 'Total', 'Credit Limit', 'Exchange Rate']:
+                style.add('ALIGN', (i, 1), (i, -1), 'RIGHT')
 
         table.setStyle(style)
-
-        # Calculate column widths based on content
-        available_width = doc.width
-        min_col_width = 0.4 * inch
-
-        # Convert character counts to inches with padding
-        col_widths = []
-        for width in col_max_widths:
-            # Convert character count to inches (approximate)
-            w = width * avg_char_width + 0.3 * inch  # Add padding
-            w = max(w, min_col_width)  # Ensure minimum width
-            col_widths.append(w)
-
-        # Check if total width exceeds available width
-        total_width = sum(col_widths)
-        if total_width > available_width:
-            # Scale down proportionally
-            scale = available_width / total_width
-            col_widths = [w * scale for w in col_widths]
-
-        # Make the table with calculated widths
-        auto_width_table = Table(table_data, colWidths=col_widths, repeatRows=1)
-        auto_width_table.setStyle(style)
-
-        elements.append(auto_width_table)
+        elements.append(table)
 
         # Build the PDF
         doc.build(elements)

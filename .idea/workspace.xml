@@ -4,11 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="Tested: Added account term">
+    <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="Export added: PDF Fixed&#10;Special function added to exporting accounts with assigned classifications">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/finance.db" beforeDir="false" afterPath="$PROJECT_DIR$/finance.db" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/general_gui.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/general_gui.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/future_features.md" beforeDir="false" afterPath="$PROJECT_DIR$/future_features.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/display_categories.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_categories.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/display_classifications.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_classifications.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/display_credit_cards.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_credit_cards.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/display_currencies.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_currencies.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/display_transactions.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_transactions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/export_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/export_utils.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -92,30 +96,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1737238166006</updated>
-    </task>
-    <task id="LOCAL-00001" summary="First trial">
-      <option name="closed" value="true" />
-      <created>1739857125481</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
-      <option name="project" value="LOCAL" />
-      <updated>1739857125481</updated>
-    </task>
-    <task id="LOCAL-00002" summary="Changing the GUI library">
-      <option name="closed" value="true" />
-      <created>1739959220214</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
-      <option name="project" value="LOCAL" />
-      <updated>1739959220214</updated>
-    </task>
-    <task id="LOCAL-00003" summary="color mode">
-      <option name="closed" value="true" />
-      <created>1740759458990</created>
-      <option name="number" value="00003" />
-      <option name="presentableId" value="LOCAL-00003" />
-      <option name="project" value="LOCAL" />
-      <updated>1740759458990</updated>
     </task>
     <task id="LOCAL-00004" summary="Modularizign GUI">
       <option name="closed" value="true" />
@@ -485,7 +465,31 @@
       <option name="project" value="LOCAL" />
       <updated>1743531875323</updated>
     </task>
-    <option name="localTasksCounter" value="50" />
+    <task id="LOCAL-00050" summary="GUI settings including:&#10;Window size&#10;Window state (maximized, or normal): still not working&#10;splitter position&#10;color mode">
+      <option name="closed" value="true" />
+      <created>1743534296763</created>
+      <option name="number" value="00050" />
+      <option name="presentableId" value="LOCAL-00050" />
+      <option name="project" value="LOCAL" />
+      <updated>1743534296763</updated>
+    </task>
+    <task id="LOCAL-00051" summary="Export added:&#10;CSV&#10;XLSX&#10;PDF (not working properly)">
+      <option name="closed" value="true" />
+      <created>1743538585859</created>
+      <option name="number" value="00051" />
+      <option name="presentableId" value="LOCAL-00051" />
+      <option name="project" value="LOCAL" />
+      <updated>1743538585859</updated>
+    </task>
+    <task id="LOCAL-00052" summary="Export added: PDF Fixed&#10;Special function added to exporting accounts with assigned classifications">
+      <option name="closed" value="true" />
+      <created>1743541619018</created>
+      <option name="number" value="00052" />
+      <option name="presentableId" value="LOCAL-00052" />
+      <option name="project" value="LOCAL" />
+      <updated>1743541619018</updated>
+    </task>
+    <option name="localTasksCounter" value="53" />
     <servers />
   </component>
   <component name="UnknownFeatures">
@@ -503,9 +507,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Changing the GUI library" />
-    <MESSAGE value="color mode" />
-    <MESSAGE value="Modularizign GUI" />
     <MESSAGE value="Icons added" />
     <MESSAGE value="Classification GUI is added" />
     <MESSAGE value="Classification assignment/unassignment added to accounts" />
@@ -528,24 +529,27 @@
     <MESSAGE value="Not tested: orphan transactions database adjustment." />
     <MESSAGE value="Tested: Account with nature" />
     <MESSAGE value="Tested: Added account term" />
-    <option name="LAST_COMMIT_MESSAGE" value="Tested: Added account term" />
+    <MESSAGE value="GUI settings including:&#10;Window size&#10;Window state (maximized, or normal): still not working&#10;splitter position&#10;color mode" />
+    <MESSAGE value="Export added:&#10;CSV&#10;XLSX&#10;PDF (not working properly)" />
+    <MESSAGE value="Export added: PDF Fixed&#10;Special function added to exporting accounts with assigned classifications" />
+    <option name="LAST_COMMIT_MESSAGE" value="Export added: PDF Fixed&#10;Special function added to exporting accounts with assigned classifications" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/gui/display_transactions.py</url>
-          <line>1704</line>
+          <line>1705</line>
           <option name="timeStamp" value="39" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/gui/display_transactions.py</url>
-          <line>2017</line>
+          <line>2018</line>
           <option name="timeStamp" value="40" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/gui/display_transactions.py</url>
-          <line>1999</line>
+          <line>2000</line>
           <option name="timeStamp" value="41" />
         </line-breakpoint>
       </breakpoints>
