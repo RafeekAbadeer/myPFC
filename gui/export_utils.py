@@ -54,7 +54,7 @@ def export_table_data(parent, table_view, default_filename=None, export_title=No
     file_path, selected_filter = QFileDialog.getSaveFileName(
         parent,
         "Export Data",
-        os.path.join(last_export_path, f"~/{default_filename}"),
+        os.path.join(last_export_path, default_filename),
         "CSV Files (*.csv);;Excel Files (*.xlsx);;PDF Files (*.pdf)"
     )
 

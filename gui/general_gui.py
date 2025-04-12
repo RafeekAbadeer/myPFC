@@ -13,6 +13,7 @@ from gui.display_credit_cards import display_credit_cards
 from gui.display_transactions import display_transactions
 from gui.display_currencies import display_currencies
 from gui.display_classifications import display_classifications
+from gui.display_orphan_transactions import display_orphan_transactions
 
 class Application(QMainWindow):
     def __init__(self):
@@ -267,6 +268,7 @@ class Application(QMainWindow):
         root_node = model.invisibleRootItem()
         dashboard_item = QStandardItem("Dashboard")
         transactions_item = QStandardItem("Transactions")
+        transactions_item.appendRow(QStandardItem("Orphan Transactions"))
         statements_item = QStandardItem("Financial Statements")
         statements_item.appendRow(QStandardItem("Journal"))
         statements_item.appendRow(QStandardItem("Income Statement"))
@@ -318,7 +320,8 @@ class Application(QMainWindow):
                 "Credit Cards": self.display_credit_cards,
                 "Transactions": self.display_transactions,
                 "Currencies": self.display_currencies,
-                "Classifications": self.display_classifications
+                "Classifications": self.display_classifications,
+                "Orphan Transactions": self.display_orphan_transactions,
             }
 
             #remove all the items on the toolbar except the mode toggle
@@ -360,6 +363,9 @@ class Application(QMainWindow):
 
     def display_classifications(self, content_frame):
         display_classifications(content_frame, self.toolbar)
+
+    def display_orphan_transactions(self, content_frame):
+        display_orphan_transactions(content_frame, self.toolbar)
 
     def add_category(self):
         self.open_input_dialog("Add Category", [("Category Name", "name")], self.database.insert_category)

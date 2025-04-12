@@ -969,3 +969,107 @@ class Database:
 # Initialize the database
 db = Database('finance.db')
 
+
+def get_counterpart_suggestions(description, amount, is_credit):
+    """Get more intelligent counterpart account suggestions"""
+    suggestions = []
+
+    # 1. Exact match by description (case insensitive)
+    exact_matches = db.execute_query("""
+        SELECT a.id, a.name, COUNT(*) as count
+        FROM transactions t
+        JOIN transaction_lines tl1 ON t.id = tl1.transaction_id
+        JOIN transaction_lines tl2 ON t.id = tl2.transaction_id
+        JOIN accounts a ON tl2.account_id = a.id
+        WHERE LOWER(t.description) = LOWER(?)
+        AND tl1.credit IS NOT NULL AND tl1.credit > 0
+        AND tl2.debit IS NOT NULL AND tl2.debit > 0
+        GROUP BY a.id
+        ORDER BY count DESC
+        LIMIT 3
+    """, (description,))
+
+    for match in exact_matches:
+        suggestions.append({
+            'account_id': match[0],
+            'account_name': match[1],
+            'confidence': 90,
+            'reason': 'Exact description match'
+        })
+
+    # 2. Partial match by description keywords
+    keywords = [word.lower() for word in description.split() if len(word) > 3]
+    for keyword in keywords:
+        partial_matches = db.execute_query("""
+            SELECT a.id, a.name, COUNT(*) as count
+            FROM transactions t
+            JOIN transaction_lines tl1 ON t.id = tl1.transaction_id
+            JOIN transaction_lines tl2 ON t.id = tl2.transaction_id
+            JOIN accounts a ON tl2.account_id = a.id
+            WHERE LOWER(t.description) LIKE ?
+            AND tl1.credit IS NOT NULL AND tl1.credit > 0
+            AND tl2.debit IS NOT NULL AND tl2.debit > 0
+            GROUP BY a.id
+            ORDER BY count DESC
+            LIMIT 2
+        """, (f'%{keyword}%',))
+
+        for match in partial_matches:
+            # Avoid duplicates
+            if not any(s['account_id'] == match[0] for s in suggestions):
+                suggestions.append({
+                    'account_id': match[0],
+                    'account_name': match[1],
+                    'confidence': 60,
+                    'reason': f'Contains keyword "{keyword}"'
+                })
+
+    # 3. Match by amount range (similar transaction amounts)
+    amount_matches = db.execute_query("""
+        SELECT a.id, a.name, COUNT(*) as count
+        FROM transactions t
+        JOIN transaction_lines tl1 ON t.id = tl1.transaction_id
+        JOIN transaction_lines tl2 ON t.id = tl2.transaction_id
+        JOIN accounts a ON tl2.account_id = a.id
+        WHERE tl1.credit BETWEEN ? AND ?
+        AND tl2.debit IS NOT NULL AND tl2.debit > 0
+        GROUP BY a.id
+        ORDER BY count DESC
+        LIMIT 2
+    """, (amount * 0.95, amount * 1.05))  # 5% range
+
+    for match in amount_matches:
+        # Avoid duplicates
+        if not any(s['account_id'] == match[0] for s in suggestions):
+            suggestions.append({
+                'account_id': match[0],
+                'account_name': match[1],
+                'confidence': 40,
+                'reason': f'Similar amount (${amount:.2f})'
+            })
+
+    # 4. Recently used accounts (as a fallback)
+    recent_accounts = db.execute_query("""
+        SELECT a.id, a.name
+        FROM accounts a
+        JOIN transaction_lines tl ON a.id = tl.account_id
+        GROUP BY a.id
+        ORDER BY MAX(tl.date) DESC
+        LIMIT 5
+    """)
+
+    for account in recent_accounts:
+        # Avoid duplicates
+        if not any(s['account_id'] == account[0] for s in suggestions):
+            suggestions.append({
+                'account_id': account[0],
+                'account_name': account[1],
+                'confidence': 20,
+                'reason': 'Recently used account'
+            })
+
+    # Sort by confidence
+    suggestions.sort(key=lambda s: s['confidence'], reverse=True)
+
+    return suggestions
+
