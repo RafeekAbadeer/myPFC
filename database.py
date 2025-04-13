@@ -1073,3 +1073,32 @@ def get_counterpart_suggestions(description, amount, is_credit):
 
     return suggestions
 
+
+# Add to database.py class
+def execute_query(self, query, params=()):
+    """Execute a custom SQL query with parameters"""
+    self.cursor.execute(query, params)
+    return self.cursor.fetchall()
+
+
+def get_orphan_line_by_id(self, line_id):
+    """Get an orphan transaction line by ID"""
+    self.cursor.execute("""
+        SELECT id, orphan_transaction_id, description, account_id, debit, credit, status
+        FROM orphan_transaction_lines
+        WHERE id = ?
+    """, (line_id,))
+
+    row = self.cursor.fetchone()
+    if row:
+        return {
+            'id': row[0],
+            'orphan_transaction_id': row[1],
+            'description': row[2],
+            'account_id': row[3],
+            'debit': row[4],
+            'credit': row[5],
+            'status': row[6]
+        }
+    return None
+

@@ -113,49 +113,307 @@ def display_orphan_transactions(content_frame, toolbar):
 # Helper functions below would include:
 def load_orphan_transactions(table_view):
     """Load orphan transaction batches into the table view"""
-    # Implementation here
+    model = QStandardItemModel()
+    model.setHorizontalHeaderLabels(["ID", "Reference", "Import Date", "Status", "Lines"])
+
+    orphan_transactions = db.get_orphan_transactions()
+
+    for transaction in orphan_transactions:
+        transaction_id = transaction[0]
+        reference = transaction[1]
+        import_date = transaction[2]
+        status = transaction[3]
+
+        # Count lines
+        lines = db.get_orphan_lines(transaction_id)
+        line_count = len(lines)
+        new_count = sum(1 for line in lines if line['status'] == 'new')
+
+        row = [
+            QStandardItem(str(transaction_id)),
+            QStandardItem(reference),
+            QStandardItem(import_date),
+            QStandardItem(status),
+            QStandardItem(f"{new_count} of {line_count} unprocessed")
+        ]
+
+        model.appendRow(row)
+
+    table_view.setModel(model)
+    table_view.resizeColumnsToContents()
 
 
 def load_orphan_lines(table_view, orphan_transaction_id):
     """Load orphan transaction lines for a specific batch"""
-    # Implementation here
+    if not orphan_transaction_id:
+        return
+
+    model = QStandardItemModel()
+    model.setHorizontalHeaderLabels(["ID", "Description", "Account", "Debit", "Credit", "Status"])
+
+    lines = db.get_orphan_lines(orphan_transaction_id)
+
+    for line in lines:
+        row = [
+            QStandardItem(str(line['id'])),
+            QStandardItem(line['description']),
+            QStandardItem(line['account_name']),
+            QStandardItem(f"${line['debit']:.2f}" if line['debit'] else ""),
+            QStandardItem(f"${line['credit']:.2f}" if line['credit'] else ""),
+            QStandardItem(line['status'])
+        ]
+
+        # Apply styling based on status
+        if line['status'] == 'consumed':
+            for item in row:
+                item.setBackground(Qt.lightGray)
+        elif line['status'] == 'ignored':
+            for item in row:
+                item.setForeground(Qt.gray)
+
+        model.appendRow(row)
+
+    table_view.setModel(model)
+    table_view.resizeColumnsToContents()
 
 
 def on_orphan_transaction_selected(orphan_table, lines_table):
     """Handle selection of an orphan transaction batch"""
-    # Implementation here
+    indexes = orphan_table.selectionModel().selectedRows()
+    if not indexes:
+        return
+
+    # Get the transaction ID from the first column
+    transaction_id = int(orphan_table.model().item(indexes[0].row(), 0).text())
+
+    # Load lines for this transaction
+    load_orphan_lines(lines_table, transaction_id)
 
 
 def on_import_csv(parent, table_view):
     """Import a new CSV file"""
-    # Implementation here
+    # Use the existing import_csv_wizard function
+    orphan_id = import_csv_wizard(parent)
+
+    if orphan_id:
+        # Refresh the table view
+        load_orphan_transactions(table_view)
+
+        # Select the newly imported batch
+        model = table_view.model()
+        for row in range(model.rowCount()):
+            if model.item(row, 0).text() == str(orphan_id):
+                table_view.selectRow(row)
+                break
 
 
 def on_process_selected(orphan_table, lines_table, parent):
     """Process selected orphan transaction batch"""
-    # Implementation here
+    indexes = orphan_table.selectionModel().selectedRows()
+    if not indexes:
+        QMessageBox.warning(parent, "No Selection", "Please select an orphan transaction batch to process.")
+        return
+
+    # Get the transaction ID from the first column
+    transaction_id = int(orphan_table.model().item(indexes[0].row(), 0).text())
+
+    # Process the orphan transaction
+    process_orphan_lines(transaction_id, parent)
+
+    # Refresh the views
+    load_orphan_transactions(orphan_table)
+    load_orphan_lines(lines_table, transaction_id)
 
 
 def on_ignore_selected(orphan_table, lines_table):
     """Ignore selected orphan transaction batch"""
-    # Implementation here
+    indexes = orphan_table.selectionModel().selectedRows()
+    if not indexes:
+        return
+
+    # Get the transaction ID from the first column
+    transaction_id = int(orphan_table.model().item(indexes[0].row(), 0).text())
+
+    # Update status to ignored
+    db.update_orphan_transaction_status(transaction_id, 'ignored')
+
+    # Refresh the views
+    load_orphan_transactions(orphan_table)
+    load_orphan_lines(lines_table, None)  # Clear the lines view
 
 
 def on_process_line(lines_table, parent):
     """Process a single orphan transaction line"""
-    # Implementation here
+    indexes = lines_table.selectionModel().selectedRows()
+    if not indexes:
+        return
+
+    # Get the line ID from the first column
+    line_id = int(lines_table.model().item(indexes[0].row(), 0).text())
+
+    # Get the line details
+    line = db.get_orphan_line_by_id(line_id)
+    if not line or line['status'] != 'new':
+        return
+
+    # Create a dialog to process this line
+    dialog = QDialog(parent)
+    dialog.setWindowTitle("Process Transaction Line")
+    dialog.resize(500, 400)
+
+    layout = QVBoxLayout(dialog)
+
+    # Form for transaction details
+    form_layout = QFormLayout()
+
+    description_edit = QLineEdit(line['description'])
+    form_layout.addRow("Description:", description_edit)
+
+    # Date field with current date as default
+    date_edit = QDateEdit(QDate.currentDate())
+    date_edit.setCalendarPopup(True)
+    form_layout.addRow("Date:", date_edit)
+
+    # Display amount
+    amount = line['debit'] if line['debit'] else line['credit']
+    is_debit = line['debit'] is not None
+    amount_label = QLabel(f"${amount:.2f} ({'Debit' if is_debit else 'Credit'})")
+    form_layout.addRow("Amount:", amount_label)
+
+    # Display source account
+    account = db.get_account_by_id(line['account_id'])
+    account_name = account[1] if account else "Unknown"
+    account_label = QLabel(account_name)
+    form_layout.addRow("From Account:", account_label)
+
+    # Select counterpart account
+    counterpart_combo = QComboBox()
+    accounts = db.get_accounts_by_nature("debit" if not is_debit else "credit")
+    for account in accounts:
+        counterpart_combo.addItem(account[1])
+    form_layout.addRow("To Account:", counterpart_combo)
+
+    layout.addLayout(form_layout)
+
+    # Buttons
+    buttons_layout = QHBoxLayout()
+    cancel_btn = QPushButton("Cancel")
+    create_btn = QPushButton("Create Transaction")
+
+    buttons_layout.addWidget(cancel_btn)
+    buttons_layout.addWidget(create_btn)
+    layout.addLayout(buttons_layout)
+
+    # Connect buttons
+    cancel_btn.clicked.connect(dialog.reject)
+    create_btn.clicked.connect(lambda: create_transaction())
+
+    def create_transaction():
+        try:
+            # Get form values
+            description = description_edit.text()
+            date_str = date_edit.date().toString("yyyy-MM-dd")
+            counterpart_account_name = counterpart_combo.currentText()
+            counterpart_account_id = db.get_account_id(counterpart_account_name)
+
+            # Begin transaction
+            db.begin_transaction()
+
+            # Create new transaction
+            transaction_id = db.insert_transaction(description, 1)  # Assuming default currency ID 1
+
+            # Add original line
+            if is_debit:
+                db.insert_transaction_line(
+                    transaction_id,
+                    line['account_id'],
+                    debit=amount,
+                    credit=None,
+                    date=date_str
+                )
+
+                # Add counterpart (credit)
+                db.insert_transaction_line(
+                    transaction_id,
+                    counterpart_account_id,
+                    debit=None,
+                    credit=amount,
+                    date=date_str
+                )
+            else:
+                db.insert_transaction_line(
+                    transaction_id,
+                    line['account_id'],
+                    debit=None,
+                    credit=amount,
+                    date=date_str
+                )
+
+                # Add counterpart (debit)
+                db.insert_transaction_line(
+                    transaction_id,
+                    counterpart_account_id,
+                    debit=amount,
+                    credit=None,
+                    date=date_str
+                )
+
+            # Mark orphan line as consumed
+            db.consume_orphan_line(line['id'], transaction_id)
+
+            # Commit transaction
+            db.commit_transaction()
+
+            dialog.accept()
+
+            # Refresh lines table
+            load_orphan_lines(lines_table, line['orphan_transaction_id'])
+
+        except Exception as e:
+            db.rollback_transaction()
+            QMessageBox.critical(dialog, "Error", f"Failed to create transaction: {str(e)}")
+
+    dialog.exec_()
 
 
 def on_ignore_line(lines_table):
     """Ignore a single orphan transaction line"""
-    # Implementation here
+    indexes = lines_table.selectionModel().selectedRows()
+    if not indexes:
+        return
+
+    # Get the line ID from the first column
+    line_id = int(lines_table.model().item(indexes[0].row(), 0).text())
+
+    # Update status to ignored
+    db.update_orphan_line_status(line_id, 'ignored')
+
+    # Get the orphan transaction ID to refresh the view
+    orphan_transaction_id = db.get_orphan_line_by_id(line_id)['orphan_transaction_id']
+
+    # Refresh the view
+    load_orphan_lines(lines_table, orphan_transaction_id)
 
 
 def on_bulk_process(lines_table, parent):
     """Bulk process similar transaction lines"""
-    # Implementation here
+    indexes = lines_table.selectionModel().selectedRows()
+    if not indexes:
+        return
+
+    # Get the line ID from the first column
+    line_id = int(lines_table.model().item(indexes[0].row(), 0).text())
+
+    # Process similar lines
+    process_similar_orphans(line_id, parent)
+
+    # Refresh the view
+    line = db.get_orphan_line_by_id(line_id)
+    if line:
+        load_orphan_lines(lines_table, line['orphan_transaction_id'])
 
 
+# Fix for process_orphan_lines function
 def process_orphan_lines(orphan_id, parent):
     """Process orphan transaction lines into balanced transactions"""
 
@@ -173,31 +431,8 @@ def process_orphan_lines(orphan_id, parent):
     # Set up layout
     layout = QVBoxLayout(dialog)
 
-    # Create current line display
-    current_line_frame = QFrame()
-    current_line_layout = QFormLayout(current_line_frame)
-
-    # Description field
-    description_edit = QLineEdit()
-    current_line_layout.addRow("Description:", description_edit)
-
     # Create two columns - one for imported data, one for counterpart
     columns_layout = QHBoxLayout()
-    # Left column - Imported data (read-only)
-    imported_group = QGroupBox("Imported Transaction")
-    imported_layout = QFormLayout(imported_group)
-
-    imported_desc_label = QLabel()
-    imported_layout.addRow("Description:", imported_desc_label)
-
-    imported_date_label = QLabel()
-    imported_layout.addRow("Date:", imported_date_label)
-
-    imported_amount_label = QLabel()
-    imported_layout.addRow("Amount:", imported_amount_label)
-
-    imported_account_label = QLabel()
-    imported_layout.addRow("Account:", imported_account_label)
 
     # Left column - Imported data (read-only)
     imported_group = QGroupBox("Imported Transaction")
@@ -214,96 +449,38 @@ def process_orphan_lines(orphan_id, parent):
 
     imported_account_label = QLabel()
     imported_layout.addRow("Account:", imported_account_label)
+
+    # Right column - Counterpart details
+    counterpart_group = QGroupBox("Counterpart Transaction")
+    counterpart_layout = QFormLayout(counterpart_group)
+
+    # Transaction description
+    description_edit = QLineEdit()
+    counterpart_layout.addRow("Description:", description_edit)
+
+    # Date field
+    date_edit = QDateEdit(QDate.currentDate())
+    date_edit.setCalendarPopup(True)
+    counterpart_layout.addRow("Date:", date_edit)
 
     # Smart account selection with suggestions
     counterpart_account_combo = QComboBox()
     counterpart_layout.addRow("Account:", counterpart_account_combo)
 
-    # Add suggestion display area
-    suggestions_group = QGroupBox("Suggested Accounts")
-    suggestions_layout = QVBoxLayout(suggestions_group)
+    # Classification selection
+    classification_combo = QComboBox()
+    classification_combo.addItem("(None)")
+    counterpart_layout.addRow("Classification:", classification_combo)
 
     # Add both columns to main layout
     columns_layout.addWidget(imported_group)
     columns_layout.addWidget(counterpart_group)
-
     layout.addLayout(columns_layout)
+
+    # Add suggestion display area
+    suggestions_group = QGroupBox("Suggested Accounts")
+    suggestions_layout = QVBoxLayout(suggestions_group)
     layout.addWidget(suggestions_group)
-
-    # Function to update display with suggestions
-    def update_display_with_suggestions():
-        # [Basic display update as before]
-
-        # Get suggestions for counterpart account
-        suggestions = get_counterpart_suggestions(
-            line['description'],
-            line['credit'] if line['credit'] else line['debit'],
-            line['credit'] is not None
-        )
-
-        # Update suggestions display
-        clear_layout(suggestions_layout)
-
-        for i, suggestion in enumerate(suggestions[:5]):  # Show top 5
-            suggestion_btn = QPushButton(f"{suggestion['account_name']} ({suggestion['confidence']}%)")
-            suggestion_btn.setToolTip(suggestion['reason'])
-
-            # Connect button to select this account
-            suggestion_btn.clicked.connect(lambda _, idx=i: select_suggested_account(idx))
-
-            suggestions_layout.addWidget(suggestion_btn)
-
-        # Also update the combo box with all accounts
-        counterpart_account_combo.clear()
-        for account in db.get_all_accounts():
-            counterpart_account_combo.addItem(account[1])
-
-        # Pre-select top suggestion if available
-        if suggestions:
-            index = counterpart_account_combo.findText(suggestions[0]['account_name'])
-            if index >= 0:
-                counterpart_account_combo.setCurrentIndex(index)
-
-    # Function to select a suggested account
-    def select_suggested_account(index):
-        suggestions = get_counterpart_suggestions(
-            lines[current_index]['description'],
-            lines[current_index]['credit'] if lines[current_index]['credit'] else lines[current_index]['debit'],
-            lines[current_index]['credit'] is not None
-        )
-
-        # Find and select the account in the combo box
-        if index < len(suggestions):
-            account_name = suggestions[index]['account_name']
-            combo_index = counterpart_account_combo.findText(account_name)
-            if combo_index >= 0:
-                counterpart_account_combo.setCurrentIndex(combo_index)
-
-
-    # Date field
-    date_edit = QDateEdit(QDate.currentDate())
-    date_edit.setCalendarPopup(True)
-    current_line_layout.addRow("Date:", date_edit)
-
-    # Amount field
-    amount_label = QLabel()
-    current_line_layout.addRow("Amount:", amount_label)
-
-    # Account field
-    account_label = QLabel()
-    current_line_layout.addRow("Account:", account_label)
-
-    # Counterpart account selection
-    counterpart_combo = QComboBox()
-    counterpart_combo.addItems([acc[1] for acc in db.get_accounts_by_nature()])
-    current_line_layout.addRow("Counterpart Account:", counterpart_combo)
-
-    # Classification selection
-    classification_combo = QComboBox()
-    classification_combo.addItem("(None)")
-    current_line_layout.addRow("Classification:", classification_combo)
-
-    layout.addWidget(current_line_frame)
 
     # Add navigation buttons
     nav_layout = QHBoxLayout()
@@ -328,6 +505,15 @@ def process_orphan_lines(orphan_id, parent):
     # Current line index
     current_index = 0
 
+    # Helper function to clear a layout
+    def clear_layout(layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                clear_layout(item.layout())
+
     # Function to update display for current line
     def update_display():
         if current_index >= len(lines):
@@ -337,26 +523,40 @@ def process_orphan_lines(orphan_id, parent):
         line = lines[current_index]
         description_edit.setText(line['description'])
 
-        # Set date if available
+        # Update imported transaction display
+        imported_desc_label.setText(line['description'])
+
+        # Try to parse date if available
         try:
             date = datetime.datetime.strptime(line.get('date', ''), '%Y-%m-%d').date()
+            imported_date_label.setText(date.strftime('%Y-%m-%d'))
             date_edit.setDate(QDate(date.year, date.month, date.day))
         except:
+            imported_date_label.setText("Not specified")
             date_edit.setDate(QDate.currentDate())
 
         # Display amount and determine if credit or debit
         if line['debit']:
-            amount_label.setText(f"${line['debit']} (Debit)")
+            imported_amount_label.setText(f"${line['debit']} (Debit)")
             is_credit = False
         else:
-            amount_label.setText(f"${line['credit']} (Credit)")
+            imported_amount_label.setText(f"${line['credit']} (Credit)")
             is_credit = True
 
-        # Set account
-        account_label.setText(line['account_name'])
+        # Set account name
+        imported_account_label.setText(line['account_name'])
 
-        # Update classification options based on counterpart account
+        # Update counterpart account combo
+        counterpart_account_combo.clear()
+        accounts = db.get_accounts_by_nature("credit" if is_credit else "debit")
+        for account in accounts:
+            counterpart_account_combo.addItem(account[1])
+
+        # Update classification options
         update_classification_options()
+
+        # Update suggestions
+        update_display_with_suggestions()
 
         # Update progress indicator
         progress_label.setText(f"Processing item {current_index + 1} of {len(lines)}")
@@ -364,6 +564,73 @@ def process_orphan_lines(orphan_id, parent):
         # Update navigation buttons
         prev_button.setEnabled(current_index > 0)
         next_button.setEnabled(current_index < len(lines) - 1)
+
+    # Function to update display with suggestions
+    def update_display_with_suggestions():
+        # Clear existing suggestions
+        clear_layout(suggestions_layout)
+
+        # Get current line
+        line = lines[current_index]
+
+        # Get suggestions for counterpart account
+        suggestions = get_counterpart_suggestions(
+            line['description'],
+            line['credit'] if line['credit'] else line['debit'],
+            line['credit'] is not None
+        )
+
+        # Update suggestions display
+        for i, suggestion in enumerate(suggestions[:5]):  # Show top 5
+            suggestion_btn = QPushButton(f"{suggestion['account_name']} ({suggestion['confidence']}%)")
+            suggestion_btn.setToolTip(suggestion['reason'])
+
+            # Connect button to select this account
+            suggestion_btn.clicked.connect(lambda _, idx=i: select_suggested_account(idx))
+
+            suggestions_layout.addWidget(suggestion_btn)
+
+        # Pre-select top suggestion if available
+        if suggestions:
+            index = counterpart_account_combo.findText(suggestions[0]['account_name'])
+            if index >= 0:
+                counterpart_account_combo.setCurrentIndex(index)
+
+    # Function to select a suggested account
+    def select_suggested_account(index):
+        suggestions = get_counterpart_suggestions(
+            lines[current_index]['description'],
+            lines[current_index]['credit'] if lines[current_index]['credit'] else lines[current_index]['debit'],
+            lines[current_index]['credit'] is not None
+        )
+
+        # Find and select the account in the combo box
+        if index < len(suggestions):
+            account_name = suggestions[index]['account_name']
+            combo_index = counterpart_account_combo.findText(account_name)
+            if combo_index >= 0:
+                counterpart_account_combo.setCurrentIndex(combo_index)
+
+    # Function to update classification options
+    def update_classification_options():
+        # Get selected account
+        account_name = counterpart_account_combo.currentText()
+        if not account_name:
+            return
+
+        account_id = db.get_account_id(account_name)
+
+        # Get classifications for this account
+        classifications = db.get_classifications_for_account(account_id)
+
+        # Update combo box
+        classification_combo.clear()
+        classification_combo.addItem("(None)")
+        for classification in classifications:
+            classification_combo.addItem(classification[1])
+
+    # Connect account selection to classification update
+    counterpart_account_combo.currentIndexChanged.connect(update_classification_options)
 
     # Connect signals for navigation
     prev_button.clicked.connect(lambda: navigate(-1))
@@ -376,7 +643,7 @@ def process_orphan_lines(orphan_id, parent):
         nonlocal current_index
         if skip:
             # Skip this line (don't process)
-            lines[current_index]['skipped'] = True
+            db.update_orphan_line_status(lines[current_index]['id'], 'ignored')
 
         # Move to next/previous line
         current_index += direction
@@ -387,7 +654,7 @@ def process_orphan_lines(orphan_id, parent):
         line = lines[current_index]
 
         # Get selected counterpart account
-        counterpart_account_name = counterpart_combo.currentText()
+        counterpart_account_name = counterpart_account_combo.currentText()
         counterpart_account_id = db.get_account_id(counterpart_account_name)
 
         # Get classification if selected
@@ -461,24 +728,6 @@ def process_orphan_lines(orphan_id, parent):
         except Exception as e:
             db.rollback_transaction()
             QMessageBox.critical(dialog, "Error", f"Failed to create transaction: {str(e)}")
-
-    # Function to update classification options
-    def update_classification_options():
-        # Get selected account
-        account_name = counterpart_combo.currentText()
-        account_id = db.get_account_id(account_name)
-
-        # Get classifications for this account
-        classifications = db.get_classifications_for_account(account_id)
-
-        # Update combo box
-        classification_combo.clear()
-        classification_combo.addItem("(None)")
-        for classification in classifications:
-            classification_combo.addItem(classification[1])
-
-    # Connect account selection to classification update
-    counterpart_combo.currentIndexChanged.connect(update_classification_options)
 
     # Initialize display
     update_display()
@@ -609,7 +858,7 @@ def process_similar_orphans(reference_line_id, parent):
 
         if not selected_line_ids:
             QMessageBox.warning(dialog, "No Selection",
-                                "Please select at least one transaction to process.")
+                               "Please select at least one transaction to process.")
             return
 
         # Process each line
@@ -677,7 +926,7 @@ def process_similar_orphans(reference_line_id, parent):
                 processed_count += 1
 
             QMessageBox.information(dialog, "Success",
-                                    f"Successfully processed {processed_count} transactions.")
+                                   f"Successfully processed {processed_count} transactions.")
             dialog.accept()
 
         except Exception as e:
