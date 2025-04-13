@@ -379,8 +379,16 @@ def import_csv_wizard(parent):
                     # Create a dict from the row
                     row_dict = {}
                     for col_name, header_name in mappings.items():
-                        col_index = header_model.horizontalHeaderItem(0).text().index(header_name)
-                        if col_index < len(row):
+                        # Find column index safely
+                        col_index = -1
+                        for i in range(header_model.columnCount()):
+                            header_item = header_model.item(0, i)
+                            if header_item and header_item.text() == header_name:
+                                col_index = i
+                                break
+
+                        # Only add to row_dict if we found a valid column and it's within range
+                        if col_index >= 0 and col_index < len(row):
                             row_dict[col_name] = row[col_index]
 
                     # Process the row
@@ -640,7 +648,7 @@ def import_csv_wizard(parent):
                             date_str = datetime.datetime.now().strftime("%Y-%m-%d")
 
                         # Skip rows with no amount
-                        if debit is None and credit is None:
+                        if (debit is None and credit is None) or account_id is None:
                             continue
 
                         # Create line data
@@ -651,8 +659,8 @@ def import_csv_wizard(parent):
                             'credit': credit,
                             'date': date_str
                         }
-
-                        lines_data.append(line)
+                        if description and account_id and (debit is not None or credit is not None):
+                            lines_data.append(line)
 
                     except Exception as e:
                         print(f"Error processing row {row_index}: {str(e)}")

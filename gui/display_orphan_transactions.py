@@ -196,15 +196,33 @@ def on_import_csv(parent, table_view):
     orphan_id = import_csv_wizard(parent)
 
     if orphan_id:
-        # Refresh the table view
-        load_orphan_transactions(table_view)
+        # Ask user if they want to go to the orphan transactions page
+        reply = QMessageBox.question(
+            parent,
+            "Import Successful",
+            "Transactions have been imported as orphan transactions. Would you like to process them now?",
+            QMessageBox.Yes | QMessageBox.No
+        )
 
-        # Select the newly imported batch
-        model = table_view.model()
-        for row in range(model.rowCount()):
-            if model.item(row, 0).text() == str(orphan_id):
-                table_view.selectRow(row)
-                break
+        if reply == QMessageBox.Yes:
+            # Find the tree view and select the Orphan Transactions item
+            main_window = parent.window()
+            if hasattr(main_window, 'tree'):
+                # Find the Orphan Transactions item
+                model = main_window.tree.model()
+                root = model.invisibleRootItem()
+
+                # Look for Transactions then Orphan Transactions
+                for i in range(root.rowCount()):
+                    item = root.child(i)
+                    if item.text() == "Transactions":
+                        for j in range(item.rowCount()):
+                            child = item.child(j)
+                            if child.text() == "Orphan Transactions":
+                                # Select this item
+                                index = model.indexFromItem(child)
+                                main_window.tree.setCurrentIndex(index)
+                                return
 
 
 def on_process_selected(orphan_table, lines_table, parent):

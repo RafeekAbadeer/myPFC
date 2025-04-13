@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import (QWizard, QWizardPage, QVBoxLayout, QTableView, QAct
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon, QDoubleValidator, QPixmap
 from PyQt5.QtCore import Qt, QSortFilterProxyModel, QDate, QTimer, QObject, QEvent
 from gui.dialog_utils import show_entity_dialog
+from gui.import_utils import import_csv_wizard
 from database import db
 import datetime
 
@@ -380,13 +381,16 @@ def display_transactions(content_frame, toolbar):
 
     # Add toolbar buttons for main transactions
     add_action = QAction(QIcon('icons/add.png'), "Add", toolbar)
+    import_csv_action = QAction(QIcon('icons/import.png'), "Import CSV", toolbar)
     edit_action = QAction(QIcon('icons/edit.png'), "Edit", toolbar)
     delete_action = QAction(QIcon('icons/delete.png'), "Delete", toolbar)
     filter_action = QAction(QIcon('icons/filter.png'), "Filter", toolbar)
     reset_filter_action = QAction(QIcon('icons/clear.png'), "Reset Filter", toolbar)
     export_action = QAction(QIcon('icons/export.png'), "Export", toolbar)
 
+
     toolbar.insertAction(actions_to_keep[0], add_action)
+    toolbar.insertAction(actions_to_keep[0], import_csv_action)
     toolbar.insertAction(actions_to_keep[0], edit_action)
     toolbar.insertAction(actions_to_keep[0], delete_action)
     toolbar.insertAction(actions_to_keep[0], filter_action)
@@ -395,6 +399,7 @@ def display_transactions(content_frame, toolbar):
 
     # Connect actions for main transactions
     add_action.triggered.connect(lambda: add_transaction_wizard(content_frame, transactions_table))
+    import_csv_action.triggered.connect(lambda: on_import_csv(content_frame, transactions_table))
     edit_action.triggered.connect(lambda: edit_transaction_wizard(content_frame, transactions_table))
     delete_action.triggered.connect(lambda: delete_transaction(content_frame, transactions_table))
     filter_action.triggered.connect(lambda: filter_transactions(content_frame, transactions_table))
@@ -1801,6 +1806,22 @@ def add_transaction_wizard(parent, table_view, edit_mode=False, transaction_id=N
             QMessageBox.critical(parent, "Error",
                                  f"Failed to {'update' if wizard.edit_mode else 'add'} transaction: {str(e)}")
 
+
+def on_import_csv(parent, table_view):
+    """Import a new CSV file"""
+    # Use the existing import_csv_wizard function
+    orphan_id = import_csv_wizard(parent)
+
+    if orphan_id:
+        # Refresh the table view
+        load_orphan_transactions(table_view)
+
+        # Select the newly imported batch
+        model = table_view.model()
+        for row in range(model.rowCount()):
+            if model.item(row, 0).text() == str(orphan_id):
+                table_view.selectRow(row)
+                break
 
 def fill_classifications_for_edit(combo, account_id, target_classification):
     """Fill classification combo and set value during edit operations"""
