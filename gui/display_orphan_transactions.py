@@ -202,6 +202,12 @@ def edit_orphan_line(line_id, parent):
     status_label = QLabel(line['status'])
     form_layout.addRow("Status:", status_label)
 
+    # Notes display (read-only)
+    if line.get('notes'):
+        notes_label = QLabel(line.get('notes', ''))
+        notes_label.setWordWrap(True)
+        form_layout.addRow("Notes:", notes_label)
+
     layout.addLayout(form_layout)
 
     # Buttons
@@ -257,39 +263,6 @@ def edit_orphan_line(line_id, parent):
 
     return dialog.exec_()
 
-def load_orphan_lines(table_view, orphan_transaction_id):
-    """Load orphan transaction lines for a specific batch"""
-    if not orphan_transaction_id:
-        return
-
-    model = QStandardItemModel()
-    model.setHorizontalHeaderLabels(["ID", "Description", "Account", "Debit", "Credit", "Status"])
-
-    lines = db.get_orphan_lines(orphan_transaction_id)
-
-    for line in lines:
-        row = [
-            QStandardItem(str(line['id'])),
-            QStandardItem(line['description']),
-            QStandardItem(line['account_name']),
-            QStandardItem(f"${line['debit']:.2f}" if line['debit'] else ""),
-            QStandardItem(f"${line['credit']:.2f}" if line['credit'] else ""),
-            QStandardItem(line['status'])
-        ]
-
-        # Apply styling based on status
-        if line['status'] == 'consumed':
-            for item in row:
-                item.setBackground(Qt.lightGray)
-        elif line['status'] == 'ignored':
-            for item in row:
-                item.setForeground(Qt.gray)
-
-        model.appendRow(row)
-
-    table_view.setModel(model)
-    table_view.resizeColumnsToContents()
-
 
 def on_orphan_transaction_selected(orphan_table, lines_table):
     """Handle selection of an orphan transaction batch"""
@@ -338,6 +311,62 @@ def on_import_csv(parent, table_view):
                                 main_window.tree.setCurrentIndex(index)
                                 return
 
+        # If we reach here, the user said No or the navigation failed
+        # Just refresh the table view to show the imported batch
+        load_orphan_transactions(table_view)
+
+        # Select the newly imported batch
+        model = table_view.model()
+        for row in range(model.rowCount()):
+            if model.item(row, 0).text() == str(orphan_id):
+                table_view.selectRow(row)
+                break
+
+def load_orphan_transactions(table_view):
+    """Load orphan transaction batches into the table view"""
+    model = QStandardItemModel()
+    model.setHorizontalHeaderLabels(["ID", "Reference", "Import Date", "Status", "Lines"])
+
+    orphan_transactions = db.get_orphan_transactions()
+
+    for transaction in orphan_transactions:
+        transaction_id = transaction[0]
+        reference = transaction[1]
+        import_date = transaction[2]
+        status = transaction[3]
+
+        # Count lines
+        lines = db.get_orphan_lines(transaction_id)
+        line_count = len(lines)
+        new_count = sum(1 for line in lines if line['status'] == 'new')
+        error_count = sum(1 for line in lines if line['status'] == 'error')
+
+        # Include error count in the summary if any
+        if error_count > 0:
+            status_text = f"{new_count} of {line_count} unprocessed ({error_count} with errors)"
+        else:
+            status_text = f"{new_count} of {line_count} unprocessed"
+
+        row = [
+            QStandardItem(str(transaction_id)),
+            QStandardItem(reference),
+            QStandardItem(import_date),
+            QStandardItem(status),
+            QStandardItem(status_text)
+        ]
+
+        # Apply styling to indicate status
+        if status == 'processed':
+            for item in row:
+                item.setBackground(Qt.lightGray)
+        elif status == 'ignored':
+            for item in row:
+                item.setForeground(Qt.gray)
+
+        model.appendRow(row)
+
+    table_view.setModel(model)
+    table_view.resizeColumnsToContents()
 
 def on_process_selected(orphan_table, lines_table, parent):
     """Process selected orphan transaction batch"""

@@ -4,15 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="Export added: PDF Fixed&#10;Special function added to exporting accounts with assigned classifications">
+    <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="preparing importing CSC">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/1x/toggles.pptx" beforeDir="false" afterPath="$PROJECT_DIR$/1x/toggles.pptx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dark_mode.qss" beforeDir="false" afterPath="$PROJECT_DIR$/dark_mode.qss" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/database.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/future_features.md" beforeDir="false" afterPath="$PROJECT_DIR$/future_features.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/display_categories.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_categories.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/display_classifications.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_classifications.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/display_credit_cards.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_credit_cards.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/display_currencies.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_currencies.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/display_transactions.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_transactions.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/export_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/export_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/display_orphan_transactions.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_orphan_transactions.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -54,25 +53,26 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.Test.executor": "Run",
-    "Python.column_headers.executor": "Run",
-    "Python.data_display.executor": "Run",
-    "Python.database.executor": "Debug",
-    "Python.dialog_utils.executor": "Run",
-    "Python.display_accounts.executor": "Run",
-    "Python.display_currencies.executor": "Run",
-    "Python.display_transactions.executor": "Run",
-    "Python.general_gui.executor": "Run",
-    "Python.main.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "master",
-    "last_opened_file_path": "C:/Users/user/PycharmProjects/myFCP",
-    "settings.editor.selected.configurable": "preferences.fileTypes"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.Test.executor&quot;: &quot;Run&quot;,
+    &quot;Python.column_headers.executor&quot;: &quot;Run&quot;,
+    &quot;Python.data_display.executor&quot;: &quot;Run&quot;,
+    &quot;Python.database.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.dialog_utils.executor&quot;: &quot;Run&quot;,
+    &quot;Python.display_accounts.executor&quot;: &quot;Run&quot;,
+    &quot;Python.display_currencies.executor&quot;: &quot;Run&quot;,
+    &quot;Python.display_transactions.executor&quot;: &quot;Run&quot;,
+    &quot;Python.export_utils.executor&quot;: &quot;Run&quot;,
+    &quot;Python.general_gui.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/user/PycharmProjects/myFCP&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.fileTypes&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\user\PycharmProjects\myFCP" />
@@ -96,70 +96,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1737238166006</updated>
-    </task>
-    <task id="LOCAL-00004" summary="Modularizign GUI">
-      <option name="closed" value="true" />
-      <created>1740775026776</created>
-      <option name="number" value="00004" />
-      <option name="presentableId" value="LOCAL-00004" />
-      <option name="project" value="LOCAL" />
-      <updated>1740775026776</updated>
-    </task>
-    <task id="LOCAL-00005" summary="Icons added">
-      <option name="closed" value="true" />
-      <created>1740780149021</created>
-      <option name="number" value="00005" />
-      <option name="presentableId" value="LOCAL-00005" />
-      <option name="project" value="LOCAL" />
-      <updated>1740780149021</updated>
-    </task>
-    <task id="LOCAL-00006" summary="Classification GUI is added">
-      <option name="closed" value="true" />
-      <created>1741594090232</created>
-      <option name="number" value="00006" />
-      <option name="presentableId" value="LOCAL-00006" />
-      <option name="project" value="LOCAL" />
-      <updated>1741594090232</updated>
-    </task>
-    <task id="LOCAL-00007" summary="Classification assignment/unassignment added to accounts">
-      <option name="closed" value="true" />
-      <created>1741640781719</created>
-      <option name="number" value="00007" />
-      <option name="presentableId" value="LOCAL-00007" />
-      <option name="project" value="LOCAL" />
-      <updated>1741640781719</updated>
-    </task>
-    <task id="LOCAL-00008" summary="testing display_transactions.py">
-      <option name="closed" value="true" />
-      <created>1741713896326</created>
-      <option name="number" value="00008" />
-      <option name="presentableId" value="LOCAL-00008" />
-      <option name="project" value="LOCAL" />
-      <updated>1741713896326</updated>
-    </task>
-    <task id="LOCAL-00009" summary="testing display_transactions.py">
-      <option name="closed" value="true" />
-      <created>1741716277429</created>
-      <option name="number" value="00009" />
-      <option name="presentableId" value="LOCAL-00009" />
-      <option name="project" value="LOCAL" />
-      <updated>1741716277429</updated>
-    </task>
-    <task id="LOCAL-00010" summary="testing display_transactions.py">
-      <option name="closed" value="true" />
-      <created>1741719465577</created>
-      <option name="number" value="00010" />
-      <option name="presentableId" value="LOCAL-00010" />
-      <option name="project" value="LOCAL" />
-      <updated>1741719465577</updated>
-    </task>
-    <task id="LOCAL-00011" summary="testing display_transactions.py">
-      <option name="closed" value="true" />
-      <created>1741722853613</created>
-      <option name="number" value="00011" />
-      <option name="presentableId" value="LOCAL-00011" />
-      <option name="project" value="LOCAL" />
-      <updated>1741722853613</updated>
     </task>
     <task id="LOCAL-00012" summary="Saving transaction works without classifications for transaction lines">
       <option name="closed" value="true" />
@@ -489,7 +425,71 @@
       <option name="project" value="LOCAL" />
       <updated>1743541619018</updated>
     </task>
-    <option name="localTasksCounter" value="53" />
+    <task id="LOCAL-00053" summary="Export added to other modules&#10;PDF export is not working properly with all">
+      <option name="closed" value="true" />
+      <created>1743609719514</created>
+      <option name="number" value="00053" />
+      <option name="presentableId" value="LOCAL-00053" />
+      <option name="project" value="LOCAL" />
+      <updated>1743609719514</updated>
+    </task>
+    <task id="LOCAL-00054" summary="Export added to other modules&#10;PDF export is not working properly with all">
+      <option name="closed" value="true" />
+      <created>1743610784350</created>
+      <option name="number" value="00054" />
+      <option name="presentableId" value="LOCAL-00054" />
+      <option name="project" value="LOCAL" />
+      <updated>1743610784350</updated>
+    </task>
+    <task id="LOCAL-00055" summary="Export added to other modules&#10;PDF export is not working properly with all">
+      <option name="closed" value="true" />
+      <created>1743621714363</created>
+      <option name="number" value="00055" />
+      <option name="presentableId" value="LOCAL-00055" />
+      <option name="project" value="LOCAL" />
+      <updated>1743621714363</updated>
+    </task>
+    <task id="LOCAL-00056" summary="Export to PDF passed the test">
+      <option name="closed" value="true" />
+      <created>1743623076043</created>
+      <option name="number" value="00056" />
+      <option name="presentableId" value="LOCAL-00056" />
+      <option name="project" value="LOCAL" />
+      <updated>1743623076043</updated>
+    </task>
+    <task id="LOCAL-00057" summary="Problem with saving loading last saving location">
+      <option name="closed" value="true" />
+      <created>1743625734308</created>
+      <option name="number" value="00057" />
+      <option name="presentableId" value="LOCAL-00057" />
+      <option name="project" value="LOCAL" />
+      <updated>1743625734308</updated>
+    </task>
+    <task id="LOCAL-00058" summary="preparing importing CSC">
+      <option name="closed" value="true" />
+      <created>1744470161669</created>
+      <option name="number" value="00058" />
+      <option name="presentableId" value="LOCAL-00058" />
+      <option name="project" value="LOCAL" />
+      <updated>1744470161669</updated>
+    </task>
+    <task id="LOCAL-00059" summary="preparing importing CSC">
+      <option name="closed" value="true" />
+      <created>1744558516355</created>
+      <option name="number" value="00059" />
+      <option name="presentableId" value="LOCAL-00059" />
+      <option name="project" value="LOCAL" />
+      <updated>1744558516355</updated>
+    </task>
+    <task id="LOCAL-00060" summary="preparing importing CSC">
+      <option name="closed" value="true" />
+      <created>1746087098007</created>
+      <option name="number" value="00060" />
+      <option name="presentableId" value="LOCAL-00060" />
+      <option name="project" value="LOCAL" />
+      <updated>1746087098009</updated>
+    </task>
+    <option name="localTasksCounter" value="61" />
     <servers />
   </component>
   <component name="UnknownFeatures">
@@ -507,10 +507,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Icons added" />
-    <MESSAGE value="Classification GUI is added" />
-    <MESSAGE value="Classification assignment/unassignment added to accounts" />
-    <MESSAGE value="testing display_transactions.py" />
     <MESSAGE value="Saving transaction works without classifications for transaction lines" />
     <MESSAGE value="Saving transaction works with classifications for transaction lines" />
     <MESSAGE value="Wizard, unfinished work" />
@@ -532,25 +528,34 @@
     <MESSAGE value="GUI settings including:&#10;Window size&#10;Window state (maximized, or normal): still not working&#10;splitter position&#10;color mode" />
     <MESSAGE value="Export added:&#10;CSV&#10;XLSX&#10;PDF (not working properly)" />
     <MESSAGE value="Export added: PDF Fixed&#10;Special function added to exporting accounts with assigned classifications" />
-    <option name="LAST_COMMIT_MESSAGE" value="Export added: PDF Fixed&#10;Special function added to exporting accounts with assigned classifications" />
+    <MESSAGE value="Export added to other modules&#10;PDF export is not working properly with all" />
+    <MESSAGE value="Export to PDF passed the test" />
+    <MESSAGE value="Problem with saving loading last saving location" />
+    <MESSAGE value="preparing importing CSC" />
+    <option name="LAST_COMMIT_MESSAGE" value="preparing importing CSC" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/gui/display_transactions.py</url>
-          <line>1705</line>
+          <line>1804</line>
           <option name="timeStamp" value="39" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/gui/display_transactions.py</url>
-          <line>2018</line>
+          <line>2135</line>
           <option name="timeStamp" value="40" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/gui/display_transactions.py</url>
-          <line>2000</line>
+          <line>2117</line>
           <option name="timeStamp" value="41" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/gui/export_utils.py</url>
+          <line>39</line>
+          <option name="timeStamp" value="49" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

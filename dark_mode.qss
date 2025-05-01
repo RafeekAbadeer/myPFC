@@ -596,6 +596,20 @@ QTableView, QTreeView, QListView {
     font-size: 11pt;
 }
 
+/* Add styling for error status */
+QTableView::item[status="error"] {
+    color: #ff5555;
+    font-weight: bold;
+}
+
+QTableView::item[status="ignored"] {
+    color: #888888;
+}
+
+QTableView::item[status="consumed"] {
+    background-color: #444444;
+}
+
 QHeaderView::section {
     font-size: 11pt;
     font-weight: bold;

@@ -12,3 +12,4 @@ This is a list of the future features to be implemented
 
 ## Bugs
 - When writing a legitimate account name in new transaction line, it is accepted even if the account nature was not proper
+- Not able to store the windows state before closing (maximized or normal)

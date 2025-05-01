@@ -1141,7 +1141,7 @@ def execute_query(self, query, params=()):
 def get_orphan_line_by_id(self, line_id):
     """Get an orphan transaction line by ID"""
     self.cursor.execute("""
-        SELECT id, orphan_transaction_id, description, account_id, debit, credit, status
+        SELECT id, orphan_transaction_id, description, account_id, debit, credit, status, notes
         FROM orphan_transaction_lines
         WHERE id = ?
     """, (line_id,))
@@ -1155,7 +1155,8 @@ def get_orphan_line_by_id(self, line_id):
             'account_id': row[3],
             'debit': row[4],
             'credit': row[5],
-            'status': row[6]
+            'status': row[6],
+            'notes': row[7] if len(row) > 7 else None
         }
     return None
 
