@@ -619,59 +619,79 @@ def import_csv_wizard(parent):
 
                         # Get account if using multiple accounts
                         account_id = default_account_id
+                        account_valid = True
+                        account_name = None
+
                         if wizard.field("account") == "Multiple accounts (in CSV)" and 'account' in col_indices and \
                                 col_indices['account'] < len(row):
                             account_name = row[col_indices['account']]
                             try:
                                 account_id = db.get_account_id(account_name)
                             except:
-                                # Skip rows with invalid accounts
-                                continue
+                                # Instead of skipping, mark as invalid but keep the row
+                                account_valid = False
+                                account_id = None
 
                         # Format date
                         if date_str:
-                            if date_format != "Auto-detect":
-                                try:
-                                    date_obj = datetime.datetime.strptime(date_str, date_format)
-                                    date_str = date_obj.strftime("%Y-%m-%d")
-                                except ValueError:
-                                    # Try common formats if specified format fails
-                                    for fmt in ["%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d"]:
-                                        try:
-                                            date_obj = datetime.datetime.strptime(date_str, fmt)
-                                            date_str = date_obj.strftime("%Y-%m-%d")
-                                            break
-                                        except ValueError:
-                                            continue
+                            try:
+                                if date_format != "Auto-detect":
+                                    try:
+                                        date_obj = datetime.datetime.strptime(date_str, date_format)
+                                        date_str = date_obj.strftime("%Y-%m-%d")
+                                    except ValueError:
+                                        # Try common formats if specified format fails
+                                        for fmt in ["%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d"]:
+                                            try:
+                                                date_obj = datetime.datetime.strptime(date_str, fmt)
+                                                date_str = date_obj.strftime("%Y-%m-%d")
+                                                break
+                                            except ValueError:
+                                                continue
+                            except:
+                                # If date parsing fails, use current date
+                                date_str = datetime.datetime.now().strftime("%Y-%m-%d")
                         else:
                             # Use current date if none provided
                             date_str = datetime.datetime.now().strftime("%Y-%m-%d")
 
-                        # Skip rows with no amount
-                        if (debit is None and credit is None) or account_id is None:
+                        # Only skip rows with no amount information at all
+                        if debit is None and credit is None:
                             continue
 
-                        # Create line data
+                        # Create line data with validity information
                         line = {
                             'description': description,
                             'account_id': account_id,
+                            'account_name': account_name,  # Store the original name for reference
                             'debit': debit,
                             'credit': credit,
-                            'date': date_str
+                            'date': date_str,
+                            'valid': account_valid and (debit is not None or credit is not None)
                         }
-                        if description and account_id and (debit is not None or credit is not None):
-                            lines_data.append(line)
+
+                        lines_data.append(line)
 
                     except Exception as e:
                         print(f"Error processing row {row_index}: {str(e)}")
+                        # Still add the row with error info
+                        lines_data.append({
+                            'description': f"Error in row {row_index + 1}: {str(e)}",
+                            'account_id': None,
+                            'account_name': None,
+                            'debit': None,
+                            'credit': None,
+                            'date': datetime.datetime.now().strftime("%Y-%m-%d"),
+                            'valid': False
+                        })
                         continue
 
-            # Insert orphan transaction if we have valid lines
+            # Insert orphan transaction if we have any lines
             if lines_data:
                 orphan_id = db.insert_orphan_transaction(reference, lines_data)
                 return orphan_id
             else:
-                QMessageBox.warning(parent, "Import Error", "No valid transaction lines found in the CSV file.")
+                QMessageBox.warning(parent, "Import Error", "No transaction lines found in the CSV file.")
                 return None
 
         except Exception as e:

@@ -102,6 +102,10 @@ def display_orphan_transactions(content_frame, toolbar):
     bulk_process_btn = QPushButton("Bulk Process Similar...")
     bulk_process_btn.clicked.connect(lambda: on_bulk_process(lines_table, content_frame))
 
+    edit_line_btn = QPushButton("Edit Selected Line")
+    edit_line_btn.clicked.connect(lambda: on_edit_line(lines_table, content_frame))
+    lines_buttons_layout.insertWidget(0, edit_line_btn)  # Add at the beginning
+
     lines_buttons_layout.addWidget(process_line_btn)
     lines_buttons_layout.addWidget(ignore_line_btn)
     lines_buttons_layout.addWidget(bulk_process_btn)
@@ -111,37 +115,147 @@ def display_orphan_transactions(content_frame, toolbar):
 
 
 # Helper functions below would include:
-def load_orphan_transactions(table_view):
-    """Load orphan transaction batches into the table view"""
+def load_orphan_lines(table_view, orphan_transaction_id):
+    """Load orphan transaction lines for a specific batch"""
+    if not orphan_transaction_id:
+        return
+
     model = QStandardItemModel()
-    model.setHorizontalHeaderLabels(["ID", "Reference", "Import Date", "Status", "Lines"])
+    model.setHorizontalHeaderLabels(["ID", "Description", "Account", "Debit", "Credit", "Status", "Notes"])
 
-    orphan_transactions = db.get_orphan_transactions()
+    lines = db.get_orphan_lines(orphan_transaction_id)
 
-    for transaction in orphan_transactions:
-        transaction_id = transaction[0]
-        reference = transaction[1]
-        import_date = transaction[2]
-        status = transaction[3]
-
-        # Count lines
-        lines = db.get_orphan_lines(transaction_id)
-        line_count = len(lines)
-        new_count = sum(1 for line in lines if line['status'] == 'new')
-
+    for line in lines:
         row = [
-            QStandardItem(str(transaction_id)),
-            QStandardItem(reference),
-            QStandardItem(import_date),
-            QStandardItem(status),
-            QStandardItem(f"{new_count} of {line_count} unprocessed")
+            QStandardItem(str(line['id'])),
+            QStandardItem(line['description']),
+            QStandardItem(line['account_name']),
+            QStandardItem(f"${line['debit']:.2f}" if line['debit'] else ""),
+            QStandardItem(f"${line['credit']:.2f}" if line['credit'] else ""),
+            QStandardItem(line['status']),
+            QStandardItem(line.get('notes', ""))
         ]
+
+        # Apply styling based on status
+        if line['status'] == 'consumed':
+            for item in row:
+                item.setBackground(Qt.lightGray)
+        elif line['status'] == 'ignored':
+            for item in row:
+                item.setForeground(Qt.gray)
+        elif line['status'] == 'error':
+            for item in row:
+                item.setForeground(Qt.red)
 
         model.appendRow(row)
 
     table_view.setModel(model)
     table_view.resizeColumnsToContents()
 
+
+def edit_orphan_line(line_id, parent):
+    """Dialog to edit an orphan transaction line"""
+    line = db.get_orphan_line_by_id(line_id)
+    if not line:
+        return
+
+    dialog = QDialog(parent)
+    dialog.setWindowTitle("Edit Orphan Line")
+    dialog.resize(500, 300)
+
+    layout = QVBoxLayout(dialog)
+
+    form_layout = QFormLayout()
+
+    # Description field
+    description_edit = QLineEdit(line['description'])
+    form_layout.addRow("Description:", description_edit)
+
+    # Account selector
+    account_combo = QComboBox()
+    account_combo.addItem("(Not Selected)", None)
+
+    accounts = db.get_all_accounts()
+    for account in accounts:
+        account_combo.addItem(account[1], account[0])
+
+    # Select current account if any
+    if line['account_id']:
+        index = account_combo.findData(line['account_id'])
+        if index >= 0:
+            account_combo.setCurrentIndex(index)
+
+    form_layout.addRow("Account:", account_combo)
+
+    # Amount fields
+    debit_edit = QLineEdit()
+    if line['debit']:
+        debit_edit.setText(str(line['debit']))
+    form_layout.addRow("Debit:", debit_edit)
+
+    credit_edit = QLineEdit()
+    if line['credit']:
+        credit_edit.setText(str(line['credit']))
+    form_layout.addRow("Credit:", credit_edit)
+
+    # Status display
+    status_label = QLabel(line['status'])
+    form_layout.addRow("Status:", status_label)
+
+    layout.addLayout(form_layout)
+
+    # Buttons
+    buttons_layout = QHBoxLayout()
+    cancel_btn = QPushButton("Cancel")
+    save_btn = QPushButton("Save Changes")
+
+    buttons_layout.addWidget(cancel_btn)
+    buttons_layout.addWidget(save_btn)
+
+    layout.addLayout(buttons_layout)
+
+    # Connect buttons
+    cancel_btn.clicked.connect(dialog.reject)
+    save_btn.clicked.connect(lambda: save_changes())
+
+    def save_changes():
+        try:
+            description = description_edit.text()
+            account_id = account_combo.currentData()
+
+            debit = None
+            if debit_edit.text():
+                try:
+                    debit = float(debit_edit.text())
+                except ValueError:
+                    QMessageBox.warning(dialog, "Invalid Input", "Debit must be a valid number.")
+                    return
+
+            credit = None
+            if credit_edit.text():
+                try:
+                    credit = float(credit_edit.text())
+                except ValueError:
+                    QMessageBox.warning(dialog, "Invalid Input", "Credit must be a valid number.")
+                    return
+
+            # Validate that we have either debit or credit
+            if debit is None and credit is None:
+                QMessageBox.warning(dialog, "Invalid Input", "Either debit or credit must have a value.")
+                return
+
+            # Update status based on if we have a valid account
+            status = 'new' if account_id else 'error'
+
+            # Update the orphan line
+            db.update_orphan_line(line_id, description, account_id, debit, credit, None, status)
+
+            dialog.accept()
+
+        except Exception as e:
+            QMessageBox.critical(dialog, "Error", f"Failed to save changes: {str(e)}")
+
+    return dialog.exec_()
 
 def load_orphan_lines(table_view, orphan_transaction_id):
     """Load orphan transaction lines for a specific batch"""
@@ -259,6 +373,21 @@ def on_ignore_selected(orphan_table, lines_table):
     load_orphan_transactions(orphan_table)
     load_orphan_lines(lines_table, None)  # Clear the lines view
 
+
+def on_edit_line(lines_table, parent):
+    """Handle editing of a selected orphan line"""
+    indexes = lines_table.selectionModel().selectedRows()
+    if not indexes:
+        return
+
+    # Get the line ID from the first column
+    line_id = int(lines_table.model().item(indexes[0].row(), 0).text())
+
+    # Show edit dialog
+    if edit_orphan_line(line_id, parent):
+        # Refresh the view if dialog was accepted
+        orphan_transaction_id = db.get_orphan_line_by_id(line_id)['orphan_transaction_id']
+        load_orphan_lines(lines_table, orphan_transaction_id)
 
 def on_process_line(lines_table, parent):
     """Process a single orphan transaction line"""

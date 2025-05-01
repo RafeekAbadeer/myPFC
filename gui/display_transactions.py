@@ -1965,6 +1965,8 @@ def edit_transaction_wizard(parent, table_view):
                            credit_lines_data=credit_lines,
                            debit_lines_data=debit_lines)
 
+
+
 # Define the function
 def reset_transaction_filters(parent, table_view):
     # Reset filters

@@ -734,7 +734,7 @@ class Database:
         query = """
             SELECT otl.id, otl.orphan_transaction_id, otl.description, 
                    otl.account_id, a.name as account_name, 
-                   otl.debit, otl.credit, otl.status, otl.transaction_id
+                   otl.debit, otl.credit, otl.status, otl.transaction_id, otl.notes
             FROM orphan_transaction_lines otl
             LEFT JOIN accounts a ON otl.account_id = a.id
             WHERE 1=1
@@ -763,7 +763,8 @@ class Database:
                 'debit': row[5],
                 'credit': row[6],
                 'status': row[7],
-                'transaction_id': row[8]
+                'transaction_id': row[8],
+                'notes': row[9] if len(row) > 9 else None
             })
 
         return results
@@ -793,16 +794,37 @@ class Database:
 
             # Insert each line
             for line in lines_data:
+                # Set status based on validity
+                status = 'new' if line.get('valid', True) else 'error'
+
+                description = line.get('description', '')
+                account_id = line.get('account_id')
+                debit = line.get('debit')
+                credit = line.get('credit')
+
+                # Store original account name if it couldn't be resolved
+                notes = None
+                if not account_id and line.get('account_name'):
+                    notes = f"Original account name: {line.get('account_name')}"
+
+                # Add a notes column to orphan_transaction_lines if it doesn't exist
+                try:
+                    self.cursor.execute("SELECT notes FROM orphan_transaction_lines LIMIT 1")
+                except sqlite3.OperationalError:
+                    self.cursor.execute("ALTER TABLE orphan_transaction_lines ADD COLUMN notes TEXT")
+
                 self.cursor.execute("""
                     INSERT INTO orphan_transaction_lines 
-                    (orphan_transaction_id, description, account_id, debit, credit, status)
-                    VALUES (?, ?, ?, ?, ?, 'new')
+                    (orphan_transaction_id, description, account_id, debit, credit, status, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (
                     orphan_transaction_id,
-                    line.get('description', ''),
-                    line.get('account_id'),
-                    line.get('debit'),
-                    line.get('credit'),
+                    description,
+                    account_id,
+                    debit,
+                    credit,
+                    status,
+                    notes
                 ))
 
             # Commit transaction
@@ -813,6 +835,41 @@ class Database:
             # Rollback on error
             self.rollback_transaction()
             raise e
+
+    def update_orphan_line(self, line_id, description=None, account_id=None, debit=None, credit=None, date=None,
+                           status=None):
+        """Update an orphan transaction line"""
+        updates = []
+        params = []
+
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description)
+
+        if account_id is not None:
+            updates.append("account_id = ?")
+            params.append(account_id)
+
+        if debit is not None:
+            updates.append("debit = ?")
+            params.append(debit)
+
+        if credit is not None:
+            updates.append("credit = ?")
+            params.append(credit)
+
+        if status is not None:
+            updates.append("status = ?")
+            params.append(status)
+
+        if not updates:
+            return
+
+        query = f"UPDATE orphan_transaction_lines SET {', '.join(updates)} WHERE id = ?"
+        params.append(line_id)
+
+        self.cursor.execute(query, params)
+        self.conn.commit()
 
     def create_transaction_from_orphans(self, description, currency_id, orphan_line_ids,
                                         balancing_account_id, balancing_date):
