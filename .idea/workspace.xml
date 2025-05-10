@@ -6,12 +6,9 @@
   <component name="ChangeListManager">
     <list default="true" id="7831101c-4c2f-415b-827d-fa9aa0b4a82e" name="Changes" comment="preparing importing CSC">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/1x/toggles.pptx" beforeDir="false" afterPath="$PROJECT_DIR$/1x/toggles.pptx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dark_mode.qss" beforeDir="false" afterPath="$PROJECT_DIR$/dark_mode.qss" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/database.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/future_features.md" beforeDir="false" afterPath="$PROJECT_DIR$/future_features.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/gui/display_orphan_transactions.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_orphan_transactions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/display_transactions.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/display_transactions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/import_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/import_utils.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -53,26 +50,28 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.Test.executor&quot;: &quot;Run&quot;,
-    &quot;Python.column_headers.executor&quot;: &quot;Run&quot;,
-    &quot;Python.data_display.executor&quot;: &quot;Run&quot;,
-    &quot;Python.database.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.dialog_utils.executor&quot;: &quot;Run&quot;,
-    &quot;Python.display_accounts.executor&quot;: &quot;Run&quot;,
-    &quot;Python.display_currencies.executor&quot;: &quot;Run&quot;,
-    &quot;Python.display_transactions.executor&quot;: &quot;Run&quot;,
-    &quot;Python.export_utils.executor&quot;: &quot;Run&quot;,
-    &quot;Python.general_gui.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/user/PycharmProjects/myFCP&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.fileTypes&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.Test.executor": "Run",
+    "Python.column_headers.executor": "Run",
+    "Python.data_display.executor": "Run",
+    "Python.database.executor": "Debug",
+    "Python.dialog_utils.executor": "Run",
+    "Python.display_accounts.executor": "Run",
+    "Python.display_currencies.executor": "Run",
+    "Python.display_transactions.executor": "Run",
+    "Python.export_utils.executor": "Run",
+    "Python.general_gui.executor": "Run",
+    "Python.import_utils.executor": "Run",
+    "Python.main.executor": "Debug",
+    "Python.parse.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "C:/Users/user/PycharmProjects/myFCP",
+    "settings.editor.selected.configurable": "preferences.fileTypes"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\user\PycharmProjects\myFCP" />
@@ -96,14 +95,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1737238166006</updated>
-    </task>
-    <task id="LOCAL-00012" summary="Saving transaction works without classifications for transaction lines">
-      <option name="closed" value="true" />
-      <created>1741726337361</created>
-      <option name="number" value="00012" />
-      <option name="presentableId" value="LOCAL-00012" />
-      <option name="project" value="LOCAL" />
-      <updated>1741726337361</updated>
     </task>
     <task id="LOCAL-00013" summary="Saving transaction works with classifications for transaction lines">
       <option name="closed" value="true" />
@@ -489,7 +480,15 @@
       <option name="project" value="LOCAL" />
       <updated>1746087098009</updated>
     </task>
-    <option name="localTasksCounter" value="61" />
+    <task id="LOCAL-00061" summary="preparing importing CSC">
+      <option name="closed" value="true" />
+      <created>1746088158666</created>
+      <option name="number" value="00061" />
+      <option name="presentableId" value="LOCAL-00061" />
+      <option name="project" value="LOCAL" />
+      <updated>1746088158667</updated>
+    </task>
+    <option name="localTasksCounter" value="62" />
     <servers />
   </component>
   <component name="UnknownFeatures">
@@ -539,23 +538,28 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/gui/display_transactions.py</url>
-          <line>1804</line>
+          <line>1856</line>
           <option name="timeStamp" value="39" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/gui/display_transactions.py</url>
-          <line>2135</line>
+          <line>2187</line>
           <option name="timeStamp" value="40" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/gui/display_transactions.py</url>
-          <line>2117</line>
+          <line>2169</line>
           <option name="timeStamp" value="41" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/gui/export_utils.py</url>
           <line>39</line>
           <option name="timeStamp" value="49" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/gui/import_utils.py</url>
+          <line>14</line>
+          <option name="timeStamp" value="52" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

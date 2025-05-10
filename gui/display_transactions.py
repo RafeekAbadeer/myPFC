@@ -16,6 +16,58 @@ _currency_cache = {}
 _classification_cache = {}
 
 
+# Add this function to display_transactions.py - typically near the beginning of the file
+# after imports but before the main display_transactions function:
+
+def load_orphan_transactions(table_view):
+    """Load orphan transaction batches into the table view"""
+    from database import db  # Ensure db is imported if not already
+
+    model = QStandardItemModel()
+    model.setHorizontalHeaderLabels(["ID", "Reference", "Import Date", "Status", "Lines"])
+
+    orphan_transactions = db.get_orphan_transactions()
+
+    for transaction in orphan_transactions:
+        transaction_id = transaction[0]
+        reference = transaction[1]
+        import_date = transaction[2]
+        status = transaction[3]
+
+        # Count lines
+        lines = db.get_orphan_lines(transaction_id)
+        line_count = len(lines)
+        new_count = sum(1 for line in lines if line['status'] == 'new')
+        error_count = sum(1 for line in lines if line['status'] == 'error')
+
+        # Include error count in the summary if any
+        if error_count > 0:
+            status_text = f"{new_count} of {line_count} unprocessed ({error_count} with errors)"
+        else:
+            status_text = f"{new_count} of {line_count} unprocessed"
+
+        row = [
+            QStandardItem(str(transaction_id)),
+            QStandardItem(reference),
+            QStandardItem(import_date),
+            QStandardItem(status),
+            QStandardItem(status_text)
+        ]
+
+        # Apply styling to indicate status
+        if status == 'processed':
+            for item in row:
+                item.setBackground(Qt.lightGray)
+        elif status == 'ignored':
+            for item in row:
+                item.setForeground(Qt.gray)
+
+        model.appendRow(row)
+
+    table_view.setModel(model)
+    table_view.resizeColumnsToContents()
+
+
 def get_cached_account_name(account_id):
     """Get account name from cache or load it from database"""
     if account_id not in _account_cache:

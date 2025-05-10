@@ -690,6 +690,88 @@ def process_orphan_lines(orphan_id, parent):
             elif item.layout():
                 clear_layout(item.layout())
 
+    # Add this function definition inside process_orphan_lines
+    # right before the update_display() call at the end
+
+    def create_transaction():
+        line = lines[current_index]
+
+        # Get selected counterpart account
+        counterpart_account_name = counterpart_account_combo.currentText()
+        counterpart_account_id = db.get_account_id(counterpart_account_name)
+
+        # Get classification if selected
+        classification_id = None
+        if classification_combo.currentText() != "(None)":
+            classification_data = db.get_classification_by_name(classification_combo.currentText())
+            if classification_data:
+                classification_id = classification_data[0]
+
+        try:
+            # Start transaction creation
+            db.begin_transaction()
+
+            # Create new transaction
+            description = description_edit.text()
+            currency_id = 1  # Default currency - might need to be determined differently
+            transaction_id = db.insert_transaction(description, currency_id)
+
+            # Create the original line
+            date_str = date_edit.date().toString("yyyy-MM-dd")
+            if line['debit']:
+                # This is a debit line
+                db.insert_transaction_line(
+                    transaction_id,
+                    line['account_id'],
+                    debit=line['debit'],
+                    credit=None,
+                    date=date_str,
+                    classification_id=classification_id
+                )
+
+                # Create balancing credit line
+                db.insert_transaction_line(
+                    transaction_id,
+                    counterpart_account_id,
+                    debit=None,
+                    credit=line['debit'],
+                    date=date_str,
+                    classification_id=None
+                )
+            else:
+                # This is a credit line
+                db.insert_transaction_line(
+                    transaction_id,
+                    line['account_id'],
+                    debit=None,
+                    credit=line['credit'],
+                    date=date_str,
+                    classification_id=classification_id
+                )
+
+                # Create balancing debit line
+                db.insert_transaction_line(
+                    transaction_id,
+                    counterpart_account_id,
+                    debit=line['credit'],
+                    credit=None,
+                    date=date_str,
+                    classification_id=None
+                )
+
+            # Mark orphan line as consumed
+            db.consume_orphan_line(line['id'], transaction_id)
+
+            # Commit transaction
+            db.commit_transaction()
+
+            # Move to next item
+            navigate(1)
+
+        except Exception as e:
+            db.rollback_transaction()
+            QMessageBox.critical(dialog, "Error", f"Failed to create transaction: {str(e)}")
+
     # Function to update display for current line
     def update_display():
         if current_index >= len(lines):

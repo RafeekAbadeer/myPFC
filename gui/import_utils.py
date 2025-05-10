@@ -3,12 +3,14 @@ import csv
 import datetime
 from PyQt5.QtWidgets import (
     QDialog, QWizard, QWizardPage, QVBoxLayout, QHBoxLayout, QLabel,
-    QLineEdit, QComboBox, QPushButton, QCheckBox, QMessageBox,
+    QLineEdit, QComboBox, QPushButton, QCheckBox, QMessageBox, QHeaderView,
     QFileDialog, QGroupBox, QFormLayout, QTextEdit, QTableView, QWidget
 )
-from PyQt5.QtGui import QStandardItemModel, QStandardItem
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QPixmap, QColor, QFont
 from PyQt5.QtCore import Qt, QDate
 from database import db
+
+
 
 def import_csv_wizard(parent):
     """
@@ -18,6 +20,29 @@ def import_csv_wizard(parent):
     wizard = QWizard(parent)
     wizard.setWindowTitle("Import Transactions")
     wizard.setMinimumSize(800, 600)
+    wizard.current_page_id = 0  # Initialize to page 1 (0-indexed)
+
+    # Add state storage for combo box selections
+    wizard.saved_mappings = {
+        'date': None,
+        'description': None,
+        'amount': None,
+        'debit': None,
+        'credit': None,
+        'account': None,
+        'currency': None,
+        'date_format': None,
+        'custom_date_format': None
+    }
+
+    # Apply modern style to match add_transaction_wizard
+    wizard.setWizardStyle(QWizard.ModernStyle)
+
+    # Create a transparent pixmap for the banner/watermark
+    transparent_pixmap = QPixmap()
+    wizard.setPixmap(QWizard.WatermarkPixmap, transparent_pixmap)
+    wizard.setPixmap(QWizard.BannerPixmap, transparent_pixmap)
+    wizard.setPixmap(QWizard.LogoPixmap, transparent_pixmap)
 
     # ==================
     # Page 1: File Selection and Basic Info
@@ -27,15 +52,20 @@ def import_csv_wizard(parent):
     page1.setSubTitle("Please select a CSV file and provide basic information")
 
     layout1 = QVBoxLayout(page1)
+    layout1.setSpacing(10)
+    layout1.setContentsMargins(20, 20, 20, 20)
 
     # File selection
     file_group = QGroupBox("CSV File")
     file_layout = QVBoxLayout(file_group)
+    file_layout.setSpacing(10)
 
     file_selector = QHBoxLayout()
     file_path_edit = QLineEdit()
     file_path_edit.setReadOnly(True)
+    file_path_edit.setMinimumHeight(30)
     browse_button = QPushButton("Browse...")
+    browse_button.setMinimumHeight(30)
     file_selector.addWidget(file_path_edit)
     file_selector.addWidget(browse_button)
 
@@ -47,7 +77,7 @@ def import_csv_wizard(parent):
 
     preview_text = QTextEdit()
     preview_text.setReadOnly(True)
-    preview_text.setMaximumHeight(150)
+    preview_text.setMinimumHeight(150)
     file_layout.addWidget(preview_text)
 
     layout1.addWidget(file_group)
@@ -55,16 +85,40 @@ def import_csv_wizard(parent):
     # Import details
     details_group = QGroupBox("Import Details")
     details_layout = QFormLayout(details_group)
+    details_layout.setSpacing(10)
 
     reference_edit = QLineEdit()
+    reference_edit.setMinimumHeight(30)
+    # Generate a default reference with current date
+    default_reference = f"Import {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    reference_edit.setText(default_reference)
+    reference_edit.textChanged.emit(default_reference)
     details_layout.addRow("Import Reference:", reference_edit)
 
     account_combo = QComboBox()
+    account_combo.setMinimumHeight(30)
     account_combo.addItem("Multiple accounts (in CSV)")
     accounts = db.get_all_accounts()
     for account in accounts:
         account_combo.addItem(account[1])
     details_layout.addRow("Source Account:", account_combo)
+
+    # Add currency selection
+    currency_combo = QComboBox()
+    currency_combo.setMinimumHeight(30)
+    currencies = db.get_all_currencies()
+    for currency in currencies:
+        currency_combo.addItem(currency[1])
+
+    # Set default currency to EGP if available
+    default_index = 0
+    for i, currency in enumerate(currencies):
+        if currency[1] == "EGP":
+            default_index = i
+            break
+    currency_combo.setCurrentIndex(default_index)
+
+    details_layout.addRow("Currency:", currency_combo)
 
     has_header_checkbox = QCheckBox("CSV has header row")
     has_header_checkbox.setChecked(True)
@@ -76,6 +130,7 @@ def import_csv_wizard(parent):
     page1.registerField("filePath*", file_path_edit)
     page1.registerField("reference*", reference_edit)
     page1.registerField("account", account_combo, "currentText")
+    page1.registerField("currency", currency_combo, "currentText")
     page1.registerField("hasHeader", has_header_checkbox)
 
     # ==================
@@ -86,14 +141,40 @@ def import_csv_wizard(parent):
     page2.setSubTitle("Please map the CSV columns to the appropriate fields")
 
     layout2 = QVBoxLayout(page2)
+    layout2.setSpacing(10)
+    layout2.setContentsMargins(20, 20, 20, 20)
 
     # Header preview
-    header_group = QGroupBox("CSV Headers")
+    header_group = QGroupBox("CSV Content Preview")
     header_layout = QVBoxLayout(header_group)
 
+    # Add explanatory label
+    header_info_label = QLabel(
+        "This shows column headers (first row) and a sample row from your CSV file. Colors indicate mapped fields.")
+    header_info_label.setWordWrap(True)
+    header_layout.addWidget(header_info_label)
+
     header_preview = QTableView()
+    header_preview.setMinimumHeight(100)
+    header_preview.setAlternatingRowColors(True)
     header_model = QStandardItemModel()
     header_preview.setModel(header_model)
+
+    # Add better column headers for unmapped columns
+    def update_header_labels():
+        # Update header row with more descriptive labels if needed
+        for col in range(header_model.columnCount()):
+            item = header_model.item(0, col)
+            if item and "Column" in item.text():
+                # Add tooltip for unmapped columns
+                item.setToolTip("Select this column in the mapping below to use this data")
+
+    # Improve header preview appearance
+    header_preview.horizontalHeader().setVisible(False)
+    header_preview.verticalHeader().setVisible(False)
+    header_preview.setSelectionMode(QTableView.SingleSelection)
+    header_preview.setSelectionBehavior(QTableView.SelectColumns)
+
     header_layout.addWidget(header_preview)
 
     layout2.addWidget(header_group)
@@ -101,12 +182,15 @@ def import_csv_wizard(parent):
     # Mapping fields
     mapping_group = QGroupBox("Field Mapping")
     mapping_layout = QFormLayout(mapping_group)
+    mapping_layout.setSpacing(10)
 
     date_combo = QComboBox()
     description_combo = QComboBox()
     amount_combo = QComboBox()
     debit_combo = QComboBox()
     credit_combo = QComboBox()
+
+
 
     # Add "Not mapped" option to all combos
     for combo in [date_combo, description_combo, amount_combo, debit_combo, credit_combo]:
@@ -120,9 +204,11 @@ def import_csv_wizard(parent):
 
     # Account mapping section (only visible if "Multiple accounts" selected on page 1)
     account_mapping_section = QWidget()
+    account_mapping_section.setMinimumHeight(100)
     account_mapping_layout = QFormLayout(account_mapping_section)
 
     account_col_combo = QComboBox()
+    account_col_combo.setMinimumHeight(30)
     account_col_combo.addItem("Not mapped")
     account_mapping_layout.addRow("Account Column:", account_col_combo)
 
@@ -132,6 +218,23 @@ def import_csv_wizard(parent):
 
     mapping_layout.addRow(account_mapping_section)
 
+    # Add currency mapping section
+    currency_mapping_section = QWidget()
+    currency_mapping_section.setMinimumHeight(100)
+    currency_mapping_layout = QFormLayout(currency_mapping_section)
+
+    currency_col_combo = QComboBox()
+    currency_col_combo.setMinimumHeight(30)
+    currency_col_combo.addItem("Not mapped")
+    currency_mapping_layout.addRow("Currency Column:", currency_col_combo)
+
+    currency_mapping_info = QLabel(
+        "If your CSV contains currency information, map it here. Otherwise, the selected currency will be used for all transactions.")
+    currency_mapping_info.setWordWrap(True)
+    currency_mapping_layout.addRow("", currency_mapping_info)
+
+    mapping_layout.addRow(currency_mapping_section)
+
     layout2.addWidget(mapping_group)
 
     # Date format section
@@ -139,6 +242,7 @@ def import_csv_wizard(parent):
     date_format_layout = QFormLayout(date_format_group)
 
     date_format_combo = QComboBox()
+    date_format_combo.setMinimumHeight(30)
     date_format_combo.addItems([
         "Auto-detect",
         "YYYY-MM-DD",
@@ -148,7 +252,24 @@ def import_csv_wizard(parent):
     ])
     date_format_layout.addRow("Format:", date_format_combo)
 
+    # Add tooltips to help explain the UI
+    date_combo.setToolTip("Select the column containing transaction dates")
+    description_combo.setToolTip("Select the column containing transaction descriptions")
+    amount_combo.setToolTip("Select the column containing transaction amounts (for single amount column)")
+    debit_combo.setToolTip("Select the column containing debit amounts (money out)")
+    credit_combo.setToolTip("Select the column containing credit amounts (money in)")
+    account_col_combo.setToolTip("Select the column containing account names")
+    currency_col_combo.setToolTip("Select the column containing currency information")
+
+    # Increase height for all mapping controls and set dropdown heights
+    for combo in [date_combo, description_combo, amount_combo, debit_combo, credit_combo,
+                  account_col_combo, currency_col_combo, date_format_combo]:
+        combo.setMinimumHeight(35)  # Increase from 30 to 35
+        combo.setStyleSheet(
+            "QComboBox { min-height: 35px; padding: 5px; } QComboBox QAbstractItemView { min-height: 200px; }")
+
     custom_date_format = QLineEdit()
+    custom_date_format.setMinimumHeight(30)
     custom_date_format.setPlaceholderText("e.g., %Y-%m-%d or %d/%m/%Y")
     custom_date_format.setEnabled(False)
     date_format_layout.addRow("Custom Format:", custom_date_format)
@@ -162,6 +283,7 @@ def import_csv_wizard(parent):
     page2.registerField("debitColumn", debit_combo, "currentText")
     page2.registerField("creditColumn", credit_combo, "currentText")
     page2.registerField("accountColumn", account_col_combo, "currentText")
+    page2.registerField("currencyColumn", currency_col_combo, "currentText")
     page2.registerField("dateFormat", date_format_combo, "currentText")
     page2.registerField("customDateFormat", custom_date_format)
 
@@ -173,14 +295,23 @@ def import_csv_wizard(parent):
     page3.setSubTitle("Review the data and click Finish to import")
 
     layout3 = QVBoxLayout(page3)
+    layout3.setSpacing(10)
+    layout3.setContentsMargins(20, 20, 20, 20)
 
     # Data preview
     preview_group = QGroupBox("Data Preview")
     preview_layout = QVBoxLayout(preview_group)
 
     data_preview = QTableView()
+    data_preview.setMinimumHeight(300)
+    data_preview.setAlternatingRowColors(True)
     data_model = QStandardItemModel()
     data_preview.setModel(data_model)
+
+    # Enhance table appearance
+    data_preview.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+    data_preview.horizontalHeader().setStretchLastSection(True)
+
     preview_layout.addWidget(data_preview)
 
     layout3.addWidget(preview_group)
@@ -206,6 +337,7 @@ def import_csv_wizard(parent):
 
     notes_text = QTextEdit()
     notes_text.setReadOnly(True)
+    notes_text.setMinimumHeight(100)
     notes_layout.addWidget(notes_text)
 
     layout3.addWidget(notes_group)
@@ -218,6 +350,39 @@ def import_csv_wizard(parent):
     # ==================
     # Helper Functions
     # ==================
+
+    def save_page2_state():
+        """Save the current state of all mapping fields"""
+        wizard.saved_mappings['date'] = date_combo.currentText()
+        wizard.saved_mappings['description'] = description_combo.currentText()
+        wizard.saved_mappings['amount'] = amount_combo.currentText()
+        wizard.saved_mappings['debit'] = debit_combo.currentText()
+        wizard.saved_mappings['credit'] = credit_combo.currentText()
+        wizard.saved_mappings['account'] = account_col_combo.currentText()
+        wizard.saved_mappings['currency'] = currency_col_combo.currentText()
+        wizard.saved_mappings['date_format'] = date_format_combo.currentText()
+        wizard.saved_mappings['custom_date_format'] = custom_date_format.text()
+
+    def restore_page2_state():
+        """Restore previously saved mapping fields"""
+        if wizard.saved_mappings['date']:
+            date_combo.setCurrentText(wizard.saved_mappings['date'])
+        if wizard.saved_mappings['description']:
+            description_combo.setCurrentText(wizard.saved_mappings['description'])
+        if wizard.saved_mappings['amount']:
+            amount_combo.setCurrentText(wizard.saved_mappings['amount'])
+        if wizard.saved_mappings['debit']:
+            debit_combo.setCurrentText(wizard.saved_mappings['debit'])
+        if wizard.saved_mappings['credit']:
+            credit_combo.setCurrentText(wizard.saved_mappings['credit'])
+        if wizard.saved_mappings['account']:
+            account_col_combo.setCurrentText(wizard.saved_mappings['account'])
+        if wizard.saved_mappings['currency']:
+            currency_col_combo.setCurrentText(wizard.saved_mappings['currency'])
+        if wizard.saved_mappings['date_format']:
+            date_format_combo.setCurrentText(wizard.saved_mappings['date_format'])
+        if wizard.saved_mappings['custom_date_format']:
+            custom_date_format.setText(wizard.saved_mappings['custom_date_format'])
 
     def browse_file():
         file_path, _ = QFileDialog.getOpenFileName(parent, "Open CSV File", "", "CSV Files (*.csv)")
@@ -252,8 +417,13 @@ def import_csv_wizard(parent):
                 csvfile.seek(0)
 
                 sniffer = csv.Sniffer()
-                dialect = sniffer.sniff(sample)
-                has_header = sniffer.has_header(sample) if has_header_checkbox.isChecked() else False
+                try:
+                    dialect = sniffer.sniff(sample)
+                    has_header = sniffer.has_header(sample) if has_header_checkbox.isChecked() else False
+                except:
+                    # If sniffing fails, use defaults
+                    dialect = csv.excel
+                    has_header = has_header_checkbox.isChecked()
 
                 reader = csv.reader(csvfile, dialect)
 
@@ -273,45 +443,244 @@ def import_csv_wizard(parent):
                     row = next(reader, None)
                     if row:
                         for i, cell in enumerate(row):
-                            header_model.setItem(1, i, QStandardItem(cell))
+                            if i < len(row):
+                                header_model.setItem(1, i, QStandardItem(cell))
 
                 # Update column combo boxes
                 for combo in [date_combo, description_combo, amount_combo, debit_combo, credit_combo,
-                              account_col_combo]:
+                              account_col_combo, currency_col_combo]:
                     combo.clear()
                     combo.addItem("Not mapped")
                     combo.addItems(headers)
 
-                # Auto-map columns based on common names
+                # Auto-map columns with improved detection
+                best_matches = {
+                    'date': {'score': 0, 'index': -1},
+                    'description': {'score': 0, 'index': -1},
+                    'amount': {'score': 0, 'index': -1},
+                    'debit': {'score': 0, 'index': -1},
+                    'credit': {'score': 0, 'index': -1},
+                    'account': {'score': 0, 'index': -1},
+                    'currency': {'score': 0, 'index': -1}
+                }
+
+                date_keywords = ['date', 'day', 'time', 'when']
+                desc_keywords = ['desc', 'narr', 'detail', 'note', 'memo', 'part', 'ref', 'subject']
+                amount_keywords = ['amount', 'sum', 'value', 'total', 'number']
+                debit_keywords = ['debit', 'withdrawal', 'out', 'payment', 'dr', 'withdraw', 'spent']
+                credit_keywords = ['credit', 'deposit', 'in', 'received', 'cr', 'income', 'incoming']
+                account_keywords = ['account', 'acct', 'acc', 'category', 'cat', 'type', 'source']
+                currency_keywords = ['currency', 'curr', 'ccy', 'fx', 'cur', 'money']
+
                 for i, header in enumerate(headers):
                     header_lower = header.lower()
 
                     # Date mapping
-                    if any(word in header_lower for word in ['date', 'day', 'time']):
-                        date_combo.setCurrentIndex(i + 1)  # +1 for "Not mapped"
+                    for keyword in date_keywords:
+                        if keyword in header_lower:
+                            best_matches['date']['score'] += 10
+                            best_matches['date']['index'] = i
+                            # Exact match gets higher score
+                            if header_lower == keyword:
+                                best_matches['date']['score'] += 20
 
                     # Description mapping
-                    if any(word in header_lower for word in ['desc', 'narr', 'detail', 'note', 'memo']):
-                        description_combo.setCurrentIndex(i + 1)
+                    for keyword in desc_keywords:
+                        if keyword in header_lower:
+                            best_matches['description']['score'] += 10
+                            best_matches['description']['index'] = i
+                            if header_lower == keyword or header_lower == 'description':
+                                best_matches['description']['score'] += 20
 
                     # Amount mapping
-                    if header_lower == 'amount' or header_lower == 'sum' or header_lower == 'value':
-                        amount_combo.setCurrentIndex(i + 1)
+                    for keyword in amount_keywords:
+                        if keyword in header_lower:
+                            best_matches['amount']['score'] += 10
+                            best_matches['amount']['index'] = i
+                            if header_lower == keyword:
+                                best_matches['amount']['score'] += 20
 
                     # Debit mapping
-                    if any(word in header_lower for word in ['debit', 'withdrawal', 'out', 'payment']):
-                        debit_combo.setCurrentIndex(i + 1)
+                    for keyword in debit_keywords:
+                        if keyword in header_lower:
+                            best_matches['debit']['score'] += 10
+                            best_matches['debit']['index'] = i
+                            if header_lower == keyword:
+                                best_matches['debit']['score'] += 20
 
                     # Credit mapping
-                    if any(word in header_lower for word in ['credit', 'deposit', 'in', 'received']):
-                        credit_combo.setCurrentIndex(i + 1)
+                    for keyword in credit_keywords:
+                        if keyword in header_lower:
+                            best_matches['credit']['score'] += 10
+                            best_matches['credit']['index'] = i
+                            if header_lower == keyword:
+                                best_matches['credit']['score'] += 20
 
                     # Account mapping
-                    if any(word in header_lower for word in ['account', 'acct', 'acc']):
-                        account_col_combo.setCurrentIndex(i + 1)
+                    for keyword in account_keywords:
+                        if keyword in header_lower:
+                            best_matches['account']['score'] += 10
+                            best_matches['account']['index'] = i
+                            if header_lower == keyword:
+                                best_matches['account']['score'] += 20
+
+                    # Currency mapping
+                    for keyword in currency_keywords:
+                        if keyword in header_lower:
+                            best_matches['currency']['score'] += 10
+                            best_matches['currency']['index'] = i
+                            if header_lower == keyword:
+                                best_matches['currency']['score'] += 20
+
+                # Apply best matches if score exceeds threshold
+                if best_matches['date']['score'] > 0:
+                    date_combo.setCurrentIndex(best_matches['date']['index'] + 1)  # +1 for "Not mapped"
+
+                if best_matches['description']['score'] > 0:
+                    description_combo.setCurrentIndex(best_matches['description']['index'] + 1)
+
+                if best_matches['amount']['score'] > 0:
+                    amount_combo.setCurrentIndex(best_matches['amount']['index'] + 1)
+                elif best_matches['debit']['score'] == 0 and best_matches['credit']['score'] == 0:
+                    # If no debit/credit but amount exists, use amount
+                    for i, header in enumerate(headers):
+                        if "amount" in header.lower():
+                            amount_combo.setCurrentIndex(i + 1)
+                            break
+
+                if best_matches['debit']['score'] > 0:
+                    debit_combo.setCurrentIndex(best_matches['debit']['index'] + 1)
+
+                if best_matches['credit']['score'] > 0:
+                    credit_combo.setCurrentIndex(best_matches['credit']['index'] + 1)
+
+                if best_matches['account']['score'] > 0:
+                    account_col_combo.setCurrentIndex(best_matches['account']['index'] + 1)
+
+                if best_matches['currency']['score'] > 0:
+                    currency_col_combo.setCurrentIndex(best_matches['currency']['index'] + 1)
+
+                # Highlight mapped columns
+                for i in range(header_model.columnCount()):
+                    for col in range(header_model.columnCount()):
+                        item = header_model.item(0, col)
+                        if item:
+                            # Reset background initially
+                            item.setBackground(QColor(60, 60, 60))
+                            item.setForeground(QColor(180, 180, 180))
+
+                # Update the column highlighting to show mapping
+                update_column_highlighting()
+
+                # Try to auto-detect date format from sample data
+                try:
+                    if date_combo.currentText() != "Not mapped":
+                        date_col_index = headers.index(date_combo.currentText())
+                        # Get a few sample dates
+                        sample_dates = []
+                        csvfile.seek(0)
+                        reader = csv.reader(csvfile, dialect)
+                        if has_header:
+                            next(reader)  # Skip header
+
+                        for i, row in enumerate(reader):
+                            if i >= 5:  # Get up to 5 samples
+                                break
+                            if len(row) > date_col_index:
+                                sample_dates.append(row[date_col_index])
+
+                        # Try to determine format from samples
+                        if sample_dates:
+                            # Common formats to try
+                            formats = [
+                                ("%Y-%m-%d", "YYYY-MM-DD"),
+                                ("%m/%d/%Y", "MM/DD/YYYY"),
+                                ("%d/%m/%Y", "DD/MM/YYYY"),
+                                ("%Y/%m/%d", "YYYY/MM/DD")
+                            ]
+
+                            for fmt, display_fmt in formats:
+                                try:
+                                    # Try to parse the first date
+                                    datetime.datetime.strptime(sample_dates[0], fmt)
+                                    # If successful, select this format
+                                    date_format_combo.setCurrentText(display_fmt)
+                                    break
+                                except:
+                                    continue
+                except:
+                    # If auto-detection fails, leave as Auto-detect
+                    pass
 
         except Exception as e:
             QMessageBox.warning(parent, "Error", f"Failed to parse CSV file: {str(e)}")
+
+    def update_column_highlighting():
+        """Highlight columns in the header preview based on current mapping"""
+        # Get the current mapped columns
+        mappings = {
+            'date': date_combo.currentText(),
+            'description': description_combo.currentText(),
+            'amount': amount_combo.currentText(),
+            'debit': debit_combo.currentText(),
+            'credit': credit_combo.currentText(),
+            'account': account_col_combo.currentText(),
+            'currency': currency_col_combo.currentText()
+        }
+
+        # Remove "Not mapped" entries
+        mappings = {k: v for k, v in mappings.items() if v != "Not mapped"}
+
+        # Define colors for different field types
+        colors = {
+            'date': QColor(70, 130, 180),  # Steel blue
+            'description': QColor(60, 179, 113),  # Medium sea green
+            'amount': QColor(255, 165, 0),  # Orange
+            'debit': QColor(178, 34, 34),  # Firebrick
+            'credit': QColor(34, 139, 34),  # Forest green
+            'account': QColor(138, 43, 226),  # Blue violet
+            'currency': QColor(210, 105, 30)  # Chocolate
+        }
+
+        # Get headers from the model
+        headers = []
+        for i in range(header_model.columnCount()):
+            item = header_model.item(0, i)
+            if item:
+                headers.append(item.text())
+
+        # Apply highlighting
+        for i, header in enumerate(headers):
+            item = header_model.item(0, i)
+            if item:
+                # Reset background initially
+                item.setBackground(QColor(60, 60, 60))
+                item.setForeground(QColor(255, 255, 255))
+                # Reset header text to remove any field info
+                header_clean = header.split(" (")[0]  # Remove field info if present
+                item.setText(header_clean)
+
+                # Check if this header is mapped
+                for field, mapped_header in mappings.items():
+                    # Look for the header text without field info
+                    if header_clean == mapped_header:
+                        # Apply color based on field type
+                        color = colors.get(field, QColor(100, 100, 100))
+                        item.setBackground(color)
+                        item.setForeground(QColor(255, 255, 255))
+
+                        # Add field type to header text
+                        item.setText(f"{header_clean} ({field})")
+                        item.setFont(QFont("Arial", 10, QFont.Bold))
+
+                        # Make sample data row cell have a lighter version of the color
+                        sample_item = header_model.item(1, i)
+                        if sample_item:
+                            lighter_color = QColor(color)
+                            lighter_color.setAlpha(100)  # Make it semi-transparent
+                            sample_item.setBackground(lighter_color)
+                            sample_item.setForeground(QColor(255, 255, 255))
+                        break
 
     def update_account_mapping_visibility():
         account_mapping_section.setVisible(account_combo.currentText() == "Multiple accounts (in CSV)")
@@ -334,7 +703,8 @@ def import_csv_wizard(parent):
                 'amount': wizard.field("amountColumn"),
                 'debit': wizard.field("debitColumn"),
                 'credit': wizard.field("creditColumn"),
-                'account': wizard.field("accountColumn")
+                'account': wizard.field("accountColumn"),
+                'currency': wizard.field("currencyColumn")
             }
 
             # Remove unmapped columns
@@ -355,8 +725,11 @@ def import_csv_wizard(parent):
             data_model.clear()
 
             # Set up header
-            headers = ["Date", "Description", "Debit", "Credit", "Account", "Status"]
+            headers = ["Date", "Description", "Debit", "Credit", "Account", "Currency", "Status"]
             data_model.setHorizontalHeaderLabels(headers)
+
+            # Get default currency
+            default_currency = wizard.field("currency")
 
             # Parse and display preview
             with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
@@ -399,9 +772,12 @@ def import_csv_wizard(parent):
                         date_str = row_dict.get('date', '')
                         if date_str:
                             if date_format != "Auto-detect":
-                                # Parse with specified format
-                                date_obj = datetime.datetime.strptime(date_str, date_format)
-                                date_str = date_obj.strftime("%Y-%m-%d")
+                                try:
+                                    # Parse with specified format
+                                    date_obj = datetime.datetime.strptime(date_str, date_format)
+                                    date_str = date_obj.strftime("%Y-%m-%d")
+                                except:
+                                    date_str = f"{date_str} (format error)"
                             preview_row.append(QStandardItem(date_str))
                         else:
                             preview_row.append(QStandardItem(""))
@@ -457,13 +833,22 @@ def import_csv_wizard(parent):
                             preview_row.append(QStandardItem(""))
 
                         # Account
+                        # Account
                         if wizard.field("account") == "Multiple accounts (in CSV)":
                             account = row_dict.get('account', '')
                             preview_row.append(QStandardItem(account))
                         else:
                             preview_row.append(QStandardItem(wizard.field("account")))
 
-                        # Status
+                            # Currency
+                        if 'currency' in row_dict and row_dict['currency']:
+                            currency = row_dict['currency']
+                            preview_row.append(QStandardItem(currency))
+                        else:
+                            # Use default currency
+                            preview_row.append(QStandardItem(default_currency))
+
+                            # Status
                         is_valid = (
                                 (debit is not None or credit is not None) and
                                 description and
@@ -472,11 +857,18 @@ def import_csv_wizard(parent):
 
                         if is_valid:
                             valid_rows += 1
-                            preview_row.append(QStandardItem("Valid"))
+                            status_item = QStandardItem("Valid")
+                            # Set green background for valid rows
+                            for item in preview_row:
+                                item.setBackground(QColor(0, 100, 0, 40))  # Light green
                         else:
                             invalid_rows += 1
-                            preview_row.append(QStandardItem("Missing data"))
+                            status_item = QStandardItem("Missing data")
+                            # Set red background for invalid rows
+                            for item in preview_row:
+                                item.setBackground(QColor(100, 0, 0, 40))  # Light red
 
+                        preview_row.append(status_item)
                         data_model.appendRow(preview_row)
 
                     except Exception as e:
@@ -487,11 +879,17 @@ def import_csv_wizard(parent):
                             QStandardItem(""),
                             QStandardItem(""),
                             QStandardItem(""),
+                            QStandardItem(default_currency),
                             QStandardItem("Invalid")
                         ]
+                        # Set red background for error rows
+                        for item in error_row:
+                            item.setBackground(QColor(120, 0, 0, 60))  # Darker red
+
                         data_model.appendRow(error_row)
 
                 # Update summary labels
+
                 total_rows_label.setText(str(total_rows))
                 valid_rows_label.setText(str(valid_rows))
                 invalid_rows_label.setText(str(invalid_rows))
@@ -514,10 +912,23 @@ def import_csv_wizard(parent):
                 if wizard.field("account") == "Multiple accounts (in CSV)" and not mappings.get('account'):
                     notes.append("❌ You selected 'Multiple accounts' but no account column is mapped.")
 
-                notes_text.setHtml("<br>".join(notes))
+                # Apply color-coding to notes
+                styled_notes = []
+                for note in notes:
+                    if "❌" in note:
+                        styled_notes.append(f"<span style='color:#ff5555;'>{note}</span>")
+                    else:
+                        styled_notes.append(f"<span style='color:#ffaa00;'>{note}</span>")
+
+                notes_text.setHtml("<br>".join(styled_notes))
+
+                # Update status of the finish button based on errors
+                has_critical_errors = any("❌" in note for note in notes)
+                wizard.button(QWizard.FinishButton).setEnabled(not has_critical_errors and valid_rows > 0)
 
         except Exception as e:
             QMessageBox.warning(parent, "Error", f"Failed to preview data: {str(e)}")
+
 
     def process_csv():
         try:
@@ -532,7 +943,8 @@ def import_csv_wizard(parent):
                 'amount': wizard.field("amountColumn"),
                 'debit': wizard.field("debitColumn"),
                 'credit': wizard.field("creditColumn"),
-                'account': wizard.field("accountColumn")
+                'account': wizard.field("accountColumn"),
+                'currency': wizard.field("currencyColumn")
             }
 
             # Remove unmapped columns
@@ -555,6 +967,11 @@ def import_csv_wizard(parent):
                 account_name = wizard.field("account")
                 default_account_id = db.get_account_id(account_name)
 
+            # Get default currency
+            default_currency_id = None
+            currency_name = wizard.field("currency")
+            default_currency_id = db.get_currency_id(currency_name)
+
             # Process CSV
             lines_data = []
 
@@ -562,8 +979,7 @@ def import_csv_wizard(parent):
                 reader = csv.reader(csvfile)
 
                 # Skip header if needed
-                if has_header:
-                    headers = next(reader)
+                headers = next(reader) if has_header else None
 
                 # Create column index mapping
                 col_indices = {}
@@ -632,6 +1048,20 @@ def import_csv_wizard(parent):
                                 account_valid = False
                                 account_id = None
 
+                        # Get currency if specified
+                        currency_id = default_currency_id
+                        currency_valid = True
+
+                        if 'currency' in col_indices and col_indices['currency'] < len(row):
+                            currency_code = row[col_indices['currency']].strip()
+                            if currency_code:
+                                try:
+                                    # Try to get currency by name
+                                    currency_id = db.get_currency_id(currency_code)
+                                except:
+                                    # If not found by name, the default will be used
+                                    currency_valid = False
+
                         # Format date
                         if date_str:
                             try:
@@ -659,7 +1089,7 @@ def import_csv_wizard(parent):
                         if debit is None and credit is None:
                             continue
 
-                        # Create line data with validity information
+                        # Create line data with validity information and currency
                         line = {
                             'description': description,
                             'account_id': account_id,
@@ -667,7 +1097,8 @@ def import_csv_wizard(parent):
                             'debit': debit,
                             'credit': credit,
                             'date': date_str,
-                            'valid': account_valid and (debit is not None or credit is not None)
+                            'currency_id': currency_id,
+                            'valid': account_valid and currency_valid and (debit is not None or credit is not None)
                         }
 
                         lines_data.append(line)
@@ -682,6 +1113,7 @@ def import_csv_wizard(parent):
                             'debit': None,
                             'credit': None,
                             'date': datetime.datetime.now().strftime("%Y-%m-%d"),
+                            'currency_id': default_currency_id,
                             'valid': False
                         })
                         continue
@@ -702,19 +1134,41 @@ def import_csv_wizard(parent):
     # Connect Signals
     # ==================
 
+
     browse_button.clicked.connect(browse_file)
     account_combo.currentIndexChanged.connect(update_account_mapping_visibility)
     date_format_combo.currentIndexChanged.connect(update_date_format_visibility)
 
+    # Connect field mapping changes to update column highlighting
+    for combo in [date_combo, description_combo, amount_combo, debit_combo, credit_combo,
+                  account_col_combo, currency_col_combo]:
+        combo.currentIndexChanged.connect(update_column_highlighting)
+
+
     # Connect wizard signals
     def on_current_id_changed(page_id):
+        # Check if we're leaving page 2
+        if hasattr(wizard, 'current_page_id') and wizard.current_page_id == 1:
+            # Save state when leaving page 2
+            save_page2_state()
+
+        # Store current page ID for next time
+        wizard.current_page_id = page_id
+
+        # Handle page changes
         if page_id == 1:  # Second page (0-indexed)
             update_header_mapping(wizard.field("filePath"))
             update_account_mapping_visibility()
+            update_date_format_visibility()
+            # Restore saved selections if available
+            if hasattr(wizard, 'saved_mappings') and any(value is not None for value in wizard.saved_mappings.values()):
+                restore_page2_state()
         elif page_id == 2:  # Third page
             update_data_preview()
 
+
     wizard.currentIdChanged.connect(on_current_id_changed)
+
 
     # Before completing, validate and process
     def on_finished():
@@ -738,7 +1192,6 @@ def import_csv_wizard(parent):
 
     # Return the created orphan transaction ID if successful
     return getattr(wizard, 'orphan_id', None) if result == QWizard.Accepted else None
-
 
 def parse_csv_data(file_path, mapping):
     """Parse CSV data with column mapping"""
