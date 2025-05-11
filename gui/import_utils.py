@@ -1,4 +1,5 @@
 import os
+import json
 import csv
 import datetime
 from PyQt5.QtWidgets import (
@@ -128,7 +129,7 @@ def import_csv_wizard(parent):
 
     # Register fields
     page1.registerField("filePath*", file_path_edit)
-    page1.registerField("reference*", reference_edit)
+    page1.registerField("reference", reference_edit)
     page1.registerField("account", account_combo, "currentText")
     page1.registerField("currency", currency_combo, "currentText")
     page1.registerField("hasHeader", has_header_checkbox)
@@ -384,11 +385,29 @@ def import_csv_wizard(parent):
         if wizard.saved_mappings['custom_date_format']:
             custom_date_format.setText(wizard.saved_mappings['custom_date_format'])
 
+    # Modify browse_file to use this approach
     def browse_file():
-        file_path, _ = QFileDialog.getOpenFileName(parent, "Open CSV File", "", "CSV Files (*.csv)")
+        # Load config for initial directory
+        config = load_config()
+        initial_dir = config.get('last_import_path', '')
+
+        # Fallback to desktop or home if path doesn't exist
+        if not initial_dir or not os.path.exists(initial_dir):
+            initial_dir = os.path.expanduser("~/Desktop")
+        if not os.path.exists(initial_dir):
+            initial_dir = os.path.expanduser("~")
+
+        # Open dialog with initial directory
+        file_path, _ = QFileDialog.getOpenFileName(parent, "Open CSV File", initial_dir, "CSV Files (*.csv)")
+
         if file_path:
+            # Set path in UI
             file_path_edit.setText(file_path)
             update_preview(file_path)
+
+            # Save directory only - not connected to wizard events
+            directory = os.path.dirname(file_path)
+            update_import_path(directory)
 
     def update_preview(file_path, max_lines=10):
         try:
@@ -434,17 +453,36 @@ def import_csv_wizard(parent):
                     row = next(reader)
                     headers = [f"Column {i + 1}" for i in range(len(row))]
 
-                # Display headers
+                # Display headers in the first row
                 for i, header in enumerate(headers):
                     header_model.setItem(0, i, QStandardItem(header))
 
-                # Add sample data row
+                # Get a real data row for the sample (not the header)
+                csvfile.seek(0)
+                reader = csv.reader(csvfile, dialect)
+
+                # Skip the header if present
                 if has_header:
-                    row = next(reader, None)
-                    if row:
-                        for i, cell in enumerate(row):
-                            if i < len(row):
-                                header_model.setItem(1, i, QStandardItem(cell))
+                    next(reader)
+
+                # Get the first data row
+                sample_row = next(reader, None)
+                if sample_row:
+                    for i, cell in enumerate(sample_row):
+                        if i < len(sample_row) and i < len(headers):
+                            header_model.setItem(1, i, QStandardItem(cell))
+                else:
+                    # If no data row available, create empty cells
+                    for i in range(len(headers)):
+                        header_model.setItem(1, i, QStandardItem(""))
+                if sample_row:
+                    for i, cell in enumerate(sample_row):
+                        if i < len(sample_row) and i < len(headers):
+                            header_model.setItem(1, i, QStandardItem(cell))
+                else:
+                    # If no sample row, create empty cells for the second row
+                    for i in range(len(headers)):
+                        header_model.setItem(1, i, QStandardItem(""))
 
                 # Update column combo boxes
                 for combo in [date_combo, description_combo, amount_combo, debit_combo, credit_combo,
@@ -642,45 +680,48 @@ def import_csv_wizard(parent):
             'currency': QColor(210, 105, 30)  # Chocolate
         }
 
-        # Get headers from the model
-        headers = []
+        # Apply highlighting
         for i in range(header_model.columnCount()):
             item = header_model.item(0, i)
             if item:
-                headers.append(item.text())
-
-        # Apply highlighting
-        for i, header in enumerate(headers):
-            item = header_model.item(0, i)
-            if item:
-                # Reset background initially
+                header_text = item.text()
+                # Reset styling
                 item.setBackground(QColor(60, 60, 60))
                 item.setForeground(QColor(255, 255, 255))
-                # Reset header text to remove any field info
-                header_clean = header.split(" (")[0]  # Remove field info if present
-                item.setText(header_clean)
 
-                # Check if this header is mapped
-                for field, mapped_header in mappings.items():
-                    # Look for the header text without field info
-                    if header_clean == mapped_header:
-                        # Apply color based on field type
-                        color = colors.get(field, QColor(100, 100, 100))
-                        item.setBackground(color)
-                        item.setForeground(QColor(255, 255, 255))
+                # Strip any existing field labels
+                if " (" in header_text:
+                    header_text = header_text.split(" (")[0]
 
-                        # Add field type to header text
-                        item.setText(f"{header_clean} ({field})")
-                        item.setFont(QFont("Arial", 10, QFont.Bold))
-
-                        # Make sample data row cell have a lighter version of the color
-                        sample_item = header_model.item(1, i)
-                        if sample_item:
-                            lighter_color = QColor(color)
-                            lighter_color.setAlpha(100)  # Make it semi-transparent
-                            sample_item.setBackground(lighter_color)
-                            sample_item.setForeground(QColor(255, 255, 255))
+                # Check if this column is mapped
+                mapped_field = None
+                for field, mapped_column in mappings.items():
+                    if mapped_column == header_text:
+                        mapped_field = field
                         break
+
+                if mapped_field:
+                    # For "Column X" headers, completely replace with field name
+                    if header_text.startswith("Column "):
+                        new_text = mapped_field.capitalize()  # e.g., "Date" instead of "Column 1 (date)"
+                    else:
+                        # For meaningful headers, keep original name with field type
+                        new_text = f"{header_text} ({mapped_field})"
+
+                    # Apply styling
+                    item.setText(new_text)
+                    item.setBackground(colors.get(mapped_field, QColor(100, 100, 100)))
+                    item.setFont(QFont("Arial", 10, QFont.Bold))
+
+                    # Apply lighter color to sample data
+                    sample_item = header_model.item(1, i)
+                    if sample_item:
+                        lighter_color = QColor(colors.get(mapped_field, QColor(100, 100, 100)))
+                        lighter_color.setAlpha(100)  # Make it semi-transparent
+                        sample_item.setBackground(lighter_color)
+                else:
+                    # Set the original text for unmapped columns
+                    item.setText(header_text)
 
     def update_account_mapping_visibility():
         account_mapping_section.setVisible(account_combo.currentText() == "Multiple accounts (in CSV)")
@@ -833,14 +874,13 @@ def import_csv_wizard(parent):
                             preview_row.append(QStandardItem(""))
 
                         # Account
-                        # Account
                         if wizard.field("account") == "Multiple accounts (in CSV)":
                             account = row_dict.get('account', '')
                             preview_row.append(QStandardItem(account))
                         else:
                             preview_row.append(QStandardItem(wizard.field("account")))
 
-                            # Currency
+                        # Currency
                         if 'currency' in row_dict and row_dict['currency']:
                             currency = row_dict['currency']
                             preview_row.append(QStandardItem(currency))
@@ -848,11 +888,11 @@ def import_csv_wizard(parent):
                             # Use default currency
                             preview_row.append(QStandardItem(default_currency))
 
-                            # Status
+                        # Status
                         is_valid = (
-                                (debit is not None or credit is not None) and
-                                description and
-                                date_str
+                            (debit is not None or credit is not None) and
+                            description and
+                            date_str
                         )
 
                         if is_valid:
@@ -1192,6 +1232,38 @@ def import_csv_wizard(parent):
 
     # Return the created orphan transaction ID if successful
     return getattr(wizard, 'orphan_id', None) if result == QWizard.Accepted else None
+
+# Define function to load and save config
+def load_config():
+    try:
+        with open('config.json', 'r') as f:
+            return json.load(f)
+    except:
+        return {}
+
+def update_import_path(directory):
+    """Safely updates only the import path in config without disturbing other settings"""
+    try:
+        # Read current config
+        config = load_config()
+
+        # Update just the import path
+        config['last_import_path'] = directory
+
+        # Write back to file
+        with open('config.json', 'w') as f:
+            json.dump(config, f, indent=4)
+    except Exception as e:
+        print(f"Error updating import path: {e}")
+
+def save_config(config):
+    try:
+        with open('config.json', 'w') as f:
+            json.dump(config, indent=4, sort_keys=True)
+    except:
+        pass
+
+
 
 def parse_csv_data(file_path, mapping):
     """Parse CSV data with column mapping"""
