@@ -3,9 +3,9 @@ import json
 import csv
 import datetime
 from PyQt5.QtWidgets import (
-    QDialog, QWizard, QWizardPage, QVBoxLayout, QHBoxLayout, QLabel,
+    QDialog, QWizard, QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
     QLineEdit, QComboBox, QPushButton, QCheckBox, QMessageBox, QHeaderView,
-    QFileDialog, QGroupBox, QFormLayout, QTextEdit, QTableView, QWidget
+    QFileDialog, QGroupBox, QFormLayout, QTextEdit, QTableView, QWidget, QSizePolicy
 )
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QPixmap, QColor, QFont
 from PyQt5.QtCore import Qt, QDate
@@ -97,7 +97,7 @@ def import_csv_wizard(parent):
     details_layout.addRow("Import Reference:", reference_edit)
 
     account_combo = QComboBox()
-    account_combo.setMinimumHeight(30)
+    #account_combo.setMinimumHeight(30)
     account_combo.addItem("Multiple accounts (in CSV)")
     accounts = db.get_all_accounts()
     for account in accounts:
@@ -106,7 +106,7 @@ def import_csv_wizard(parent):
 
     # Add currency selection
     currency_combo = QComboBox()
-    currency_combo.setMinimumHeight(30)
+    #currency_combo.setMinimumHeight(30)
     currencies = db.get_all_currencies()
     for currency in currencies:
         currency_combo.addItem(currency[1])
@@ -145,6 +145,14 @@ def import_csv_wizard(parent):
     layout2.setSpacing(10)
     layout2.setContentsMargins(20, 20, 20, 20)
 
+    # Create a scroll area for the content
+    scroll_area = QScrollArea()
+    scroll_area.setWidgetResizable(True)
+    scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    scroll_content = QWidget()
+    scroll_layout = QVBoxLayout(scroll_content)
+    scroll_layout.setSpacing(10)
+
     # Header preview
     header_group = QGroupBox("CSV Content Preview")
     header_layout = QVBoxLayout(header_group)
@@ -178,12 +186,16 @@ def import_csv_wizard(parent):
 
     header_layout.addWidget(header_preview)
 
-    layout2.addWidget(header_group)
+    scroll_layout.addWidget(header_group)
 
     # Mapping fields
     mapping_group = QGroupBox("Field Mapping")
+    # Remove height constraints to let it size naturally
     mapping_layout = QFormLayout(mapping_group)
     mapping_layout.setSpacing(10)
+    mapping_layout.setContentsMargins(10, 20, 10, 20)
+    mapping_layout.setSpacing(10)  # Reduced from 15
+    mapping_layout.setContentsMargins(10, 15, 10, 15)  # Reduced margins
 
     date_combo = QComboBox()
     description_combo = QComboBox()
@@ -191,7 +203,12 @@ def import_csv_wizard(parent):
     debit_combo = QComboBox()
     credit_combo = QComboBox()
 
-
+    # Set uniform sizing for all combo boxes
+    combo_height = 40  # Increased from 35
+    for combo in [date_combo, description_combo, amount_combo, debit_combo, credit_combo]:
+        combo.setMinimumHeight(combo_height)
+        combo.setMaximumHeight(combo_height)  # Ensure consistent height
+        combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
     # Add "Not mapped" option to all combos
     for combo in [date_combo, description_combo, amount_combo, debit_combo, credit_combo]:
@@ -205,45 +222,53 @@ def import_csv_wizard(parent):
 
     # Account mapping section (only visible if "Multiple accounts" selected on page 1)
     account_mapping_section = QWidget()
-    account_mapping_section.setMinimumHeight(100)
-    account_mapping_layout = QFormLayout(account_mapping_section)
+    account_mapping_layout = QVBoxLayout(account_mapping_section)
+    account_mapping_layout.setContentsMargins(0, 0, 0, 15)  # Add bottom margin
 
+    account_form = QFormLayout()
     account_col_combo = QComboBox()
-    account_col_combo.setMinimumHeight(30)
     account_col_combo.addItem("Not mapped")
-    account_mapping_layout.addRow("Account Column:", account_col_combo)
+    account_form.addRow("Account Column:", account_col_combo)
+
+    account_mapping_layout.addLayout(account_form)
 
     account_mapping_info = QLabel("The account column should contain account names that match your system")
     account_mapping_info.setWordWrap(True)
-    account_mapping_layout.addRow("", account_mapping_info)
+    account_mapping_info.setIndent(20)  # Indent the text
+    account_mapping_layout.addWidget(account_mapping_info)
 
     mapping_layout.addRow(account_mapping_section)
 
     # Add currency mapping section
     currency_mapping_section = QWidget()
-    currency_mapping_section.setMinimumHeight(100)
-    currency_mapping_layout = QFormLayout(currency_mapping_section)
+    currency_mapping_layout = QVBoxLayout(currency_mapping_section)
+    currency_mapping_layout.setContentsMargins(0, 0, 0, 15)  # Add bottom margin
 
+    currency_form = QFormLayout()
     currency_col_combo = QComboBox()
-    currency_col_combo.setMinimumHeight(30)
     currency_col_combo.addItem("Not mapped")
-    currency_mapping_layout.addRow("Currency Column:", currency_col_combo)
+    currency_form.addRow("Currency Column:", currency_col_combo)
+
+    currency_mapping_layout.addLayout(currency_form)
 
     currency_mapping_info = QLabel(
         "If your CSV contains currency information, map it here. Otherwise, the selected currency will be used for all transactions.")
     currency_mapping_info.setWordWrap(True)
-    currency_mapping_layout.addRow("", currency_mapping_info)
+    currency_mapping_info.setIndent(20)  # Indent the text
+    currency_mapping_layout.addWidget(currency_mapping_info)
 
     mapping_layout.addRow(currency_mapping_section)
 
-    layout2.addWidget(mapping_group)
+    scroll_layout.addWidget(mapping_group)
 
     # Date format section
     date_format_group = QGroupBox("Date Format")
+    date_format_group.setMaximumHeight(150)  # Add this line to limit height
     date_format_layout = QFormLayout(date_format_group)
+    date_format_layout.setSpacing(10)  # Reduce spacing if needed
 
     date_format_combo = QComboBox()
-    date_format_combo.setMinimumHeight(30)
+    #date_format_combo.setMinimumHeight(30)
     date_format_combo.addItems([
         "Auto-detect",
         "YYYY-MM-DD",
@@ -262,20 +287,18 @@ def import_csv_wizard(parent):
     account_col_combo.setToolTip("Select the column containing account names")
     currency_col_combo.setToolTip("Select the column containing currency information")
 
-    # Increase height for all mapping controls and set dropdown heights
-    for combo in [date_combo, description_combo, amount_combo, debit_combo, credit_combo,
-                  account_col_combo, currency_col_combo, date_format_combo]:
-        combo.setMinimumHeight(35)  # Increase from 30 to 35
-        combo.setStyleSheet(
-            "QComboBox { min-height: 35px; padding: 5px; } QComboBox QAbstractItemView { min-height: 200px; }")
 
     custom_date_format = QLineEdit()
-    custom_date_format.setMinimumHeight(30)
+    #custom_date_format.setMinimumHeight(30)
     custom_date_format.setPlaceholderText("e.g., %Y-%m-%d or %d/%m/%Y")
     custom_date_format.setEnabled(False)
     date_format_layout.addRow("Custom Format:", custom_date_format)
 
-    layout2.addWidget(date_format_group)
+    scroll_layout.addWidget(date_format_group)
+
+    # Set the scroll area content and add to main layout
+    scroll_area.setWidget(scroll_content)
+    layout2.addWidget(scroll_area)
 
     # Register fields
     page2.registerField("dateColumn", date_combo, "currentText")
@@ -287,6 +310,7 @@ def import_csv_wizard(parent):
     page2.registerField("currencyColumn", currency_col_combo, "currentText")
     page2.registerField("dateFormat", date_format_combo, "currentText")
     page2.registerField("customDateFormat", custom_date_format)
+
 
     # ==================
     # Page 3: Preview & Import
@@ -1021,14 +1045,43 @@ def import_csv_wizard(parent):
                 # Skip header if needed
                 headers = next(reader) if has_header else None
 
-                # Create column index mapping
-                col_indices = {}
-                for field, header in mappings.items():
-                    if header != "Not mapped":
-                        try:
-                            col_indices[field] = headers.index(header) if has_header else int(header.split()[-1]) - 1
-                        except (ValueError, IndexError):
-                            continue
+                # Parse CSV to get actual headers
+                with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
+                    reader = csv.reader(csvfile)
+
+                    # Get actual CSV headers
+                    csv_headers = next(reader) if has_header else []
+
+                    # Create column index mapping based on actual CSV headers
+                    col_indices = {}
+                    for field, mapped_column in mappings.items():
+                        if mapped_column != "Not mapped":
+                            try:
+                                # Find index in actual CSV headers
+                                if has_header and mapped_column in csv_headers:
+                                    col_indices[field] = csv_headers.index(mapped_column)
+                                else:
+                                    # For files without headers, extract column number
+                                    col_num = int(mapped_column.split()[-1]) - 1
+                                    col_indices[field] = col_num
+                            except (ValueError, IndexError):
+                                print(f"Could not map {field} to {mapped_column}")
+                                continue
+                    # ADD THE DEBUG OUTPUT HERE:
+                    # Debug: Print mapping information
+                    print("=" * 50)
+                    print(f"CSV Headers: {csv_headers}")
+                    print(f"Mappings: {mappings}")
+                    print(f"Column Indices: {col_indices}")
+                    print("=" * 50)
+
+                    # Now process rows with correct indices
+                    csvfile.seek(0)  # Reset to beginning
+                    reader = csv.reader(csvfile)
+
+                    # Skip header again if needed
+                    if has_header:
+                        next(reader)
 
                 # Process rows
                 for row_index, row in enumerate(reader):
