@@ -800,9 +800,32 @@ def import_csv_wizard(parent):
             with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
                 reader = csv.reader(csvfile)
 
-                # Skip header if needed
+                # Get the actual CSV headers first
+                csv_headers = []
                 if has_header:
-                    next(reader)
+                    csv_headers = next(reader)
+
+                # Create column index mapping directly from CSV headers
+                col_indices = {}
+                for field, mapped_column in mappings.items():
+                    if mapped_column != "Not mapped":
+                        try:
+                            if has_header:
+                                # Direct match with CSV headers
+                                col_indices[field] = csv_headers.index(mapped_column)
+                            else:
+                                # For files without headers, extract column number
+                                col_indices[field] = int(mapped_column.split()[-1]) - 1
+                        except (ValueError, IndexError) as e:
+                            print(f"Could not map {field} to {mapped_column}: {e}")
+                            continue
+
+                # Debug output
+                print("=" * 50)
+                print(f"CSV Headers from file: {csv_headers}")
+                print(f"Mappings from wizard: {mappings}")
+                print(f"Column Indices calculated: {col_indices}")
+                print("=" * 50)
 
                 total_rows = 0
                 valid_rows = 0
@@ -814,20 +837,13 @@ def import_csv_wizard(parent):
 
                     total_rows += 1
 
-                    # Create a dict from the row
+                    # Create a dict from the row using the pre-calculated indices
                     row_dict = {}
-                    for col_name, header_name in mappings.items():
-                        # Find column index safely
-                        col_index = -1
-                        for i in range(header_model.columnCount()):
-                            header_item = header_model.item(0, i)
-                            if header_item and header_item.text() == header_name:
-                                col_index = i
-                                break
-
-                        # Only add to row_dict if we found a valid column and it's within range
-                        if col_index >= 0 and col_index < len(row):
-                            row_dict[col_name] = row[col_index]
+                    for field, col_index in col_indices.items():
+                        if 0 <= col_index < len(row):
+                            row_dict[field] = row[col_index]
+                        else:
+                            print(f"Column index {col_index} out of range for field {field}")
 
                     # Process the row
                     try:
