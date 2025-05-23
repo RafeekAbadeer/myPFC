@@ -388,25 +388,35 @@ def import_csv_wizard(parent):
         wizard.saved_mappings['date_format'] = date_format_combo.currentText()
         wizard.saved_mappings['custom_date_format'] = custom_date_format.text()
 
+        # Debug output
+        print("SAVING STATE:")
+        print(f"Saved mappings: {wizard.saved_mappings}")
+
     def restore_page2_state():
         """Restore previously saved mapping fields"""
-        if wizard.saved_mappings['date']:
-            date_combo.setCurrentText(wizard.saved_mappings['date'])
-        if wizard.saved_mappings['description']:
-            description_combo.setCurrentText(wizard.saved_mappings['description'])
-        if wizard.saved_mappings['amount']:
-            amount_combo.setCurrentText(wizard.saved_mappings['amount'])
-        if wizard.saved_mappings['debit']:
-            debit_combo.setCurrentText(wizard.saved_mappings['debit'])
-        if wizard.saved_mappings['credit']:
-            credit_combo.setCurrentText(wizard.saved_mappings['credit'])
-        if wizard.saved_mappings['account']:
-            account_col_combo.setCurrentText(wizard.saved_mappings['account'])
-        if wizard.saved_mappings['currency']:
-            currency_col_combo.setCurrentText(wizard.saved_mappings['currency'])
-        if wizard.saved_mappings['date_format']:
-            date_format_combo.setCurrentText(wizard.saved_mappings['date_format'])
-        if wizard.saved_mappings['custom_date_format']:
+        print("RESTORING STATE:")
+        print(f"Current saved mappings: {wizard.saved_mappings}")
+
+        # Helper function to safely set combo box value
+        def set_combo_value(combo, value):
+            if value and value != "Not mapped":
+                index = combo.findText(value)
+                if index >= 0:
+                    combo.setCurrentIndex(index)
+                    print(f"Set {combo.objectName() if combo.objectName() else 'combo'} to {value} at index {index}")
+                else:
+                    print(f"Could not find '{value}' in combo box")
+
+        set_combo_value(date_combo, wizard.saved_mappings.get('date'))
+        set_combo_value(description_combo, wizard.saved_mappings.get('description'))
+        set_combo_value(amount_combo, wizard.saved_mappings.get('amount'))
+        set_combo_value(debit_combo, wizard.saved_mappings.get('debit'))
+        set_combo_value(credit_combo, wizard.saved_mappings.get('credit'))
+        set_combo_value(account_col_combo, wizard.saved_mappings.get('account'))
+        set_combo_value(currency_col_combo, wizard.saved_mappings.get('currency'))
+        set_combo_value(date_format_combo, wizard.saved_mappings.get('date_format'))
+
+        if wizard.saved_mappings.get('custom_date_format'):
             custom_date_format.setText(wizard.saved_mappings['custom_date_format'])
 
     # Modify browse_file to use this approach
@@ -1256,9 +1266,10 @@ def import_csv_wizard(parent):
 
     # Connect wizard signals
     def on_current_id_changed(page_id):
-        # Check if we're leaving page 2
-        if hasattr(wizard, 'current_page_id') and wizard.current_page_id == 1:
-            # Save state when leaving page 2
+        print(f"Page changed from {getattr(wizard, 'current_page_id', 'unknown')} to {page_id}")
+
+        # Save state when leaving page 2 (index 1)
+        if hasattr(wizard, 'current_page_id') and wizard.current_page_id == 1 and page_id != 1:
             save_page2_state()
 
         # Store current page ID for next time
@@ -1269,10 +1280,15 @@ def import_csv_wizard(parent):
             update_header_mapping(wizard.field("filePath"))
             update_account_mapping_visibility()
             update_date_format_visibility()
-            # Restore saved selections if available
-            if hasattr(wizard, 'saved_mappings') and any(value is not None for value in wizard.saved_mappings.values()):
-                restore_page2_state()
+
+            # Use QTimer to restore state after the UI has been fully updated
+            from PyQt5.QtCore import QTimer
+            QTimer.singleShot(100, restore_page2_state)
+
         elif page_id == 2:  # Third page
+            # Save state before moving to page 3
+            if wizard.current_page_id == 1:
+                save_page2_state()
             update_data_preview()
 
 
