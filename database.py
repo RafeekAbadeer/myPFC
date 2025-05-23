@@ -794,8 +794,8 @@ class Database:
 
             # Insert each line
             for line in lines_data:
-                # Set status based on validity
-                status = 'new' if line.get('valid', True) else 'error'
+                # Set status based on validity - use 'ignored' for invalid lines
+                status = 'new' if line.get('valid', True) else 'ignored'
 
                 description = line.get('description', '')
                 account_id = line.get('account_id')

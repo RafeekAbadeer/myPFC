@@ -1065,52 +1065,43 @@ def import_csv_wizard(parent):
             # Process CSV
             lines_data = []
 
+            # Read the entire CSV into memory once
             with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
-                reader = csv.reader(csvfile)
+                all_rows = list(csv.reader(csvfile))
 
-                # Skip header if needed
-                headers = next(reader) if has_header else None
+            # Split headers and data rows
+            if has_header and all_rows:
+                csv_headers = all_rows[0]
+                data_rows = all_rows[1:]
+            else:
+                csv_headers = []
+                data_rows = all_rows
 
-                # Parse CSV to get actual headers
-                with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
-                    reader = csv.reader(csvfile)
+            # Create column index mapping based on actual CSV headers
+            col_indices = {}
+            for field, mapped_column in mappings.items():
+                if mapped_column != "Not mapped":
+                    try:
+                        # Find index in actual CSV headers
+                        if has_header and mapped_column in csv_headers:
+                            col_indices[field] = csv_headers.index(mapped_column)
+                        else:
+                            # For files without headers, extract column number
+                            col_num = int(mapped_column.split()[-1]) - 1
+                            col_indices[field] = col_num
+                    except (ValueError, IndexError):
+                        print(f"Could not map {field} to {mapped_column}")
+                        continue
 
-                    # Get actual CSV headers
-                    csv_headers = next(reader) if has_header else []
+            # Debug: Print mapping information
+            print("=" * 50)
+            print(f"CSV Headers: {csv_headers}")
+            print(f"Mappings: {mappings}")
+            print(f"Column Indices: {col_indices}")
+            print("=" * 50)
 
-                    # Create column index mapping based on actual CSV headers
-                    col_indices = {}
-                    for field, mapped_column in mappings.items():
-                        if mapped_column != "Not mapped":
-                            try:
-                                # Find index in actual CSV headers
-                                if has_header and mapped_column in csv_headers:
-                                    col_indices[field] = csv_headers.index(mapped_column)
-                                else:
-                                    # For files without headers, extract column number
-                                    col_num = int(mapped_column.split()[-1]) - 1
-                                    col_indices[field] = col_num
-                            except (ValueError, IndexError):
-                                print(f"Could not map {field} to {mapped_column}")
-                                continue
-                    # ADD THE DEBUG OUTPUT HERE:
-                    # Debug: Print mapping information
-                    print("=" * 50)
-                    print(f"CSV Headers: {csv_headers}")
-                    print(f"Mappings: {mappings}")
-                    print(f"Column Indices: {col_indices}")
-                    print("=" * 50)
-
-                    # Now process rows with correct indices
-                    csvfile.seek(0)  # Reset to beginning
-                    reader = csv.reader(csvfile)
-
-                    # Skip header again if needed
-                    if has_header:
-                        next(reader)
-
-                # Process rows
-                for row_index, row in enumerate(reader):
+            # Process rows
+            for row_index, row in enumerate(data_rows):
                     try:
                         # Get fields from the row
                         date_str = row[col_indices.get('date', -1)] if 'date' in col_indices and col_indices[
@@ -1220,6 +1211,12 @@ def import_csv_wizard(parent):
                             'valid': account_valid and currency_valid and (debit is not None or credit is not None)
                         }
 
+                        # Debug output
+                        print(f"Line {row_index}: {line}")
+                        print(f"  account_valid: {account_valid}, currency_valid: {currency_valid}")
+                        print(f"  debit: {debit}, credit: {credit}")
+                        print(f"  valid: {line['valid']}")
+
                         lines_data.append(line)
 
                     except Exception as e:
@@ -1233,7 +1230,7 @@ def import_csv_wizard(parent):
                             'credit': None,
                             'date': datetime.datetime.now().strftime("%Y-%m-%d"),
                             'currency_id': default_currency_id,
-                            'valid': False
+                            'valid': False,
                         })
                         continue
 
