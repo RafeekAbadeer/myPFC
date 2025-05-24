@@ -407,16 +407,27 @@ def on_edit_line(lines_table, parent):
     """Handle editing of a selected orphan line"""
     indexes = lines_table.selectionModel().selectedRows()
     if not indexes:
+        QMessageBox.warning(parent, "No Selection", "Please select a line to edit.")
         return
 
-    # Get the line ID from the first column
-    line_id = int(lines_table.model().item(indexes[0].row(), 0).text())
+    try:
+        # Get the line ID from the first column
+        line_id = int(lines_table.model().item(indexes[0].row(), 0).text())
 
-    # Show edit dialog
-    if edit_orphan_line(line_id, parent):
-        # Refresh the view if dialog was accepted
-        orphan_transaction_id = db.get_orphan_line_by_id(line_id)['orphan_transaction_id']
-        load_orphan_lines(lines_table, orphan_transaction_id)
+        # Check if line exists and has valid data
+        line = db.get_orphan_line_by_id(line_id)
+        if not line:
+            QMessageBox.warning(parent, "Invalid Line", "The selected line could not be found.")
+            return
+
+        # Show edit dialog
+        if edit_orphan_line(line_id, parent):
+            # Refresh the view if dialog was accepted
+            orphan_transaction_id = line['orphan_transaction_id']
+            load_orphan_lines(lines_table, orphan_transaction_id)
+
+    except Exception as e:
+        QMessageBox.critical(parent, "Error", f"Failed to edit line: {str(e)}")
 
 def on_process_line(lines_table, parent):
     """Process a single orphan transaction line"""
@@ -690,87 +701,71 @@ def process_orphan_lines(orphan_id, parent):
             elif item.layout():
                 clear_layout(item.layout())
 
-    # Add this function definition inside process_orphan_lines
-    # right before the update_display() call at the end
+    # Define all the inner functions BEFORE connecting signals
 
-    def create_transaction():
+    # Function to update classification options
+    def update_classification_options():
+        # Get selected account
+        account_name = counterpart_account_combo.currentText()
+        if not account_name:
+            return
+
+        account_id = db.get_account_id(account_name)
+
+        # Get classifications for this account
+        classifications = db.get_classifications_for_account(account_id)
+
+        # Update combo box
+        classification_combo.clear()
+        classification_combo.addItem("(None)")
+        for classification in classifications:
+            classification_combo.addItem(classification[1])
+
+    # Function to select a suggested account
+    def select_suggested_account(index):
+        suggestions = get_counterpart_suggestions(
+            lines[current_index]['description'],
+            lines[current_index]['credit'] if lines[current_index]['credit'] else lines[current_index]['debit'],
+            lines[current_index]['credit'] is not None
+        )
+
+        # Find and select the account in the combo box
+        if index < len(suggestions):
+            account_name = suggestions[index]['account_name']
+            combo_index = counterpart_account_combo.findText(account_name)
+            if combo_index >= 0:
+                counterpart_account_combo.setCurrentIndex(combo_index)
+
+    # Function to update display with suggestions
+    def update_display_with_suggestions():
+        # Clear existing suggestions
+        clear_layout(suggestions_layout)
+
+        # Get current line
         line = lines[current_index]
 
-        # Get selected counterpart account
-        counterpart_account_name = counterpart_account_combo.currentText()
-        counterpart_account_id = db.get_account_id(counterpart_account_name)
+        # Get suggestions for counterpart account
+        suggestions = get_counterpart_suggestions(
+            line['description'],
+            line['credit'] if line['credit'] else line['debit'],
+            line['credit'] is not None
+        )
 
-        # Get classification if selected
-        classification_id = None
-        if classification_combo.currentText() != "(None)":
-            classification_data = db.get_classification_by_name(classification_combo.currentText())
-            if classification_data:
-                classification_id = classification_data[0]
+        # Update suggestions display
+        for i, suggestion in enumerate(suggestions[:5]):  # Show top 5
+            suggestion_btn = QPushButton(f"{suggestion['account_name']} ({suggestion['confidence']}%)")
+            suggestion_btn.setToolTip(suggestion['reason'])
 
-        try:
-            # Start transaction creation
-            db.begin_transaction()
+            # Connect button to select this account
+            suggestion_btn.clicked.connect(lambda _, idx=i: select_suggested_account(idx))
 
-            # Create new transaction
-            description = description_edit.text()
-            currency_id = 1  # Default currency - might need to be determined differently
-            transaction_id = db.insert_transaction(description, currency_id)
+            suggestions_layout.addWidget(suggestion_btn)
 
-            # Create the original line
-            date_str = date_edit.date().toString("yyyy-MM-dd")
-            if line['debit']:
-                # This is a debit line
-                db.insert_transaction_line(
-                    transaction_id,
-                    line['account_id'],
-                    debit=line['debit'],
-                    credit=None,
-                    date=date_str,
-                    classification_id=classification_id
-                )
-
-                # Create balancing credit line
-                db.insert_transaction_line(
-                    transaction_id,
-                    counterpart_account_id,
-                    debit=None,
-                    credit=line['debit'],
-                    date=date_str,
-                    classification_id=None
-                )
-            else:
-                # This is a credit line
-                db.insert_transaction_line(
-                    transaction_id,
-                    line['account_id'],
-                    debit=None,
-                    credit=line['credit'],
-                    date=date_str,
-                    classification_id=classification_id
-                )
-
-                # Create balancing debit line
-                db.insert_transaction_line(
-                    transaction_id,
-                    counterpart_account_id,
-                    debit=line['credit'],
-                    credit=None,
-                    date=date_str,
-                    classification_id=None
-                )
-
-            # Mark orphan line as consumed
-            db.consume_orphan_line(line['id'], transaction_id)
-
-            # Commit transaction
-            db.commit_transaction()
-
-            # Move to next item
-            navigate(1)
-
-        except Exception as e:
-            db.rollback_transaction()
-            QMessageBox.critical(dialog, "Error", f"Failed to create transaction: {str(e)}")
+        # Pre-select top suggestion if available
+        if suggestions:
+            index = counterpart_account_combo.findText(suggestions[0]['account_name'])
+            if index >= 0:
+                counterpart_account_combo.setCurrentIndex(index)
 
     # Function to update display for current line
     def update_display():
@@ -813,185 +808,7 @@ def process_orphan_lines(orphan_id, parent):
         # Update classification options
         update_classification_options()
 
-        # Update suggestions
-        update_display_with_suggestions()
-
-        # Update progress indicator
-        progress_label.setText(f"Processing item {current_index + 1} of {len(lines)}")
-
-        # Update navigation buttons
-        prev_button.setEnabled(current_index > 0)
-        next_button.setEnabled(current_index < len(lines) - 1)
-
-    # Function to update display with suggestions
-    def update_display_with_suggestions():
-        # Clear existing suggestions
-        clear_layout(suggestions_layout)
-
-        # Get current line
-        line = lines[current_index]
-
-        # Get suggestions for counterpart account
-        suggestions = get_counterpart_suggestions(
-            line['description'],
-            line['credit'] if line['credit'] else line['debit'],
-            line['credit'] is not None
-        )
-
-        # Update suggestions display
-        for i, suggestion in enumerate(suggestions[:5]):  # Show top 5
-            suggestion_btn = QPushButton(f"{suggestion['account_name']} ({suggestion['confidence']}%)")
-            suggestion_btn.setToolTip(suggestion['reason'])
-
-            # Connect button to select this account
-            suggestion_btn.clicked.connect(lambda _, idx=i: select_suggested_account(idx))
-
-            suggestions_layout.addWidget(suggestion_btn)
-
-        # Pre-select top suggestion if available
-        if suggestions:
-            index = counterpart_account_combo.findText(suggestions[0]['account_name'])
-            if index >= 0:
-                counterpart_account_combo.setCurrentIndex(index)
-
-    # Function to select a suggested account
-    def select_suggested_account(index):
-        suggestions = get_counterpart_suggestions(
-            lines[current_index]['description'],
-            lines[current_index]['credit'] if lines[current_index]['credit'] else lines[current_index]['debit'],
-            lines[current_index]['credit'] is not None
-        )
-
-        # Find and select the account in the combo box
-        if index < len(suggestions):
-            account_name = suggestions[index]['account_name']
-            combo_index = counterpart_account_combo.findText(account_name)
-            if combo_index >= 0:
-                counterpart_account_combo.setCurrentIndex(combo_index)
-
-    # Function to update classification options
-    def update_classification_options():
-        # Get selected account
-        account_name = counterpart_account_combo.currentText()
-        if not account_name:
-            return
-
-        account_id = db.get_account_id(account_name)
-
-        # Get classifications for this account
-        classifications = db.get_classifications_for_account(account_id)
-
-        # Update combo box
-        classification_combo.clear()
-        classification_combo.addItem("(None)")
-        for classification in classifications:
-            classification_combo.addItem(classification[1])
-
-    # Connect account selection to classification update
-    counterpart_account_combo.currentIndexChanged.connect(update_classification_options)
-
-    # Connect signals for navigation
-    prev_button.clicked.connect(lambda: navigate(-1))
-    next_button.clicked.connect(lambda: navigate(1))
-    skip_button.clicked.connect(lambda: navigate(1, skip=True))
-    create_button.clicked.connect(create_transaction)
-
-    # Navigation function
-    def navigate(direction, skip=False):
-        nonlocal current_index
-        if skip:
-            # Skip this line (don't process)
-            db.update_orphan_line_status(lines[current_index]['id'], 'ignored')
-
-        # Move to next/previous line
-        current_index += direction
-        update_display()
-
-    # Transaction creation function
-    def create_transaction():
-        line = lines[current_index]
-
-        # Get selected counterpart account
-        counterpart_account_name = counterpart_account_combo.currentText()
-        counterpart_account_id = db.get_account_id(counterpart_account_name)
-
-        # Get classification if selected
-        classification_id = None
-        if classification_combo.currentText() != "(None)":
-            classification_data = db.get_classification_by_name(classification_combo.currentText())
-            if classification_data:
-                classification_id = classification_data[0]
-
-        try:
-            # Start transaction creation
-            db.begin_transaction()
-
-            # Create new transaction
-            description = description_edit.text()
-            currency_id = 1  # Default currency - might need to be determined differently
-            transaction_id = db.insert_transaction(description, currency_id)
-
-            # Create the original line
-            date_str = date_edit.date().toString("yyyy-MM-dd")
-            if line['debit']:
-                # This is a debit line
-                db.insert_transaction_line(
-                    transaction_id,
-                    line['account_id'],
-                    debit=line['debit'],
-                    credit=None,
-                    date=date_str,
-                    classification_id=classification_id
-                )
-
-                # Create balancing credit line
-                db.insert_transaction_line(
-                    transaction_id,
-                    counterpart_account_id,
-                    debit=None,
-                    credit=line['debit'],
-                    date=date_str,
-                    classification_id=None
-                )
-            else:
-                # This is a credit line
-                db.insert_transaction_line(
-                    transaction_id,
-                    line['account_id'],
-                    debit=None,
-                    credit=line['credit'],
-                    date=date_str,
-                    classification_id=classification_id
-                )
-
-                # Create balancing debit line
-                db.insert_transaction_line(
-                    transaction_id,
-                    counterpart_account_id,
-                    debit=line['credit'],
-                    credit=None,
-                    date=date_str,
-                    classification_id=None
-                )
-
-            # Mark orphan line as consumed
-            db.consume_orphan_line(line['id'], transaction_id)
-
-            # Commit transaction
-            db.commit_transaction()
-
-            # Move to next item
-            navigate(1)
-
-        except Exception as e:
-            db.rollback_transaction()
-            QMessageBox.critical(dialog, "Error", f"Failed to create transaction: {str(e)}")
-
-    # Initialize display
-    update_display()
-
-    # Show dialog
-    dialog.exec_()
+        #
 
 
 def process_similar_orphans(reference_line_id, parent):
