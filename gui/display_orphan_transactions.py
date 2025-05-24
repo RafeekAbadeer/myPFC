@@ -818,6 +818,16 @@ def process_orphan_lines(orphan_id, parent):
         prev_button.setEnabled(current_index > 0)
         next_button.setEnabled(current_index < len(lines) - 1)
 
+        # Update suggestions
+        update_display_with_suggestions()
+
+        # Update progress indicator
+        progress_label.setText(f"Processing item {current_index + 1} of {len(lines)}")
+
+        # Update navigation buttons
+        prev_button.setEnabled(current_index > 0)
+        next_button.setEnabled(current_index < len(lines) - 1)
+
     # Navigation function
     def navigate(direction, skip=False):
         nonlocal current_index
@@ -913,8 +923,7 @@ def process_orphan_lines(orphan_id, parent):
             db.rollback_transaction()
             QMessageBox.critical(dialog, "Error", f"Failed to create transaction: {str(e)}")
 
-        # NOW connect signals after all functions are defined
-
+    # NOW connect signals after all functions are defined
     counterpart_account_combo.currentIndexChanged.connect(update_classification_options)
     prev_button.clicked.connect(lambda: navigate(-1))
     next_button.clicked.connect(lambda: navigate(1))
