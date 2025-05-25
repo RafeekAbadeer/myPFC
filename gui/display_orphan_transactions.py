@@ -245,13 +245,19 @@ def edit_orphan_line(line_id, parent):
                     QMessageBox.warning(dialog, "Invalid Input", "Credit must be a valid number.")
                     return
 
-            # Validate that we have either debit or credit
+            # Validate that we have either debit or credit, but not both
+            if debit is not None and credit is not None:
+                QMessageBox.warning(dialog, "Invalid Input",
+                                    "A transaction line cannot have both debit and credit values.\n"
+                                    "Please enter either a debit OR a credit amount, not both.")
+                return
+
             if debit is None and credit is None:
                 QMessageBox.warning(dialog, "Invalid Input", "Either debit or credit must have a value.")
                 return
 
             # Update status based on if we have a valid account
-            status = 'new' if account_id else 'error'
+            status = 'new' if account_id else 'ignored'  # Changed from 'error' to 'ignored'
 
             # Update the orphan line
             db.update_orphan_line(line_id, description, account_id, debit, credit, None, status)
@@ -418,6 +424,13 @@ def on_edit_line(lines_table, parent):
         line = db.get_orphan_line_by_id(line_id)
         if not line:
             QMessageBox.warning(parent, "Invalid Line", "The selected line could not be found.")
+            return
+
+        # Check if line is already consumed
+        if line['status'] == 'consumed':
+            QMessageBox.information(parent, "Cannot Edit",
+                                    "This line has already been processed and cannot be edited.\n"
+                                    "Please manage it through the Transactions section.")
             return
 
         # Show edit dialog
@@ -807,16 +820,6 @@ def process_orphan_lines(orphan_id, parent):
 
         # Update classification options
         update_classification_options()
-
-        # Update suggestions
-        update_display_with_suggestions()
-
-        # Update progress indicator
-        progress_label.setText(f"Processing item {current_index + 1} of {len(lines)}")
-
-        # Update navigation buttons
-        prev_button.setEnabled(current_index > 0)
-        next_button.setEnabled(current_index < len(lines) - 1)
 
         # Update suggestions
         update_display_with_suggestions()

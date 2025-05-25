@@ -714,7 +714,7 @@ class Database:
             SET status = 'consumed', transaction_id = ? 
             WHERE id = ?
         """, (transaction_id, orphan_line_id))
-        self.conn.commit()
+        # Don't commit here - let the calling code handle transaction management
 
     def get_orphan_transactions(self, status=None):
         """Get orphan transactions with optional status filter"""
@@ -850,13 +850,12 @@ class Database:
             updates.append("account_id = ?")
             params.append(account_id)
 
-        if debit is not None:
-            updates.append("debit = ?")
-            params.append(debit)
+        # Always update both debit and credit to ensure one is NULL
+        updates.append("debit = ?")
+        params.append(debit)
 
-        if credit is not None:
-            updates.append("credit = ?")
-            params.append(credit)
+        updates.append("credit = ?")
+        params.append(credit)
 
         if status is not None:
             updates.append("status = ?")
@@ -1023,6 +1022,33 @@ class Database:
             self.cursor.execute(query, params)
             return self.cursor.fetchall()
 
+    def execute_query(self, query, params=()):
+        """Execute a custom SQL query with parameters"""
+        self.cursor.execute(query, params)
+        return self.cursor.fetchall()
+
+    def get_orphan_line_by_id(self, line_id):
+        """Get an orphan transaction line by ID"""
+        self.cursor.execute("""
+            SELECT id, orphan_transaction_id, description, account_id, debit, credit, status, notes
+            FROM orphan_transaction_lines
+            WHERE id = ?
+        """, (line_id,))
+
+        row = self.cursor.fetchone()
+        if row:
+            return {
+                'id': row[0],
+                'orphan_transaction_id': row[1],
+                'description': row[2],
+                'account_id': row[3],
+                'debit': row[4],
+                'credit': row[5],
+                'status': row[6],
+                'notes': row[7] if len(row) > 7 else None
+            }
+        return None
+
 # Initialize the database
 db = Database('finance.db')
 
@@ -1131,32 +1157,5 @@ def get_counterpart_suggestions(description, amount, is_credit):
     return suggestions
 
 
-# Add to database.py class
-def execute_query(self, query, params=()):
-    """Execute a custom SQL query with parameters"""
-    self.cursor.execute(query, params)
-    return self.cursor.fetchall()
 
-
-def get_orphan_line_by_id(self, line_id):
-    """Get an orphan transaction line by ID"""
-    self.cursor.execute("""
-        SELECT id, orphan_transaction_id, description, account_id, debit, credit, status, notes
-        FROM orphan_transaction_lines
-        WHERE id = ?
-    """, (line_id,))
-
-    row = self.cursor.fetchone()
-    if row:
-        return {
-            'id': row[0],
-            'orphan_transaction_id': row[1],
-            'description': row[2],
-            'account_id': row[3],
-            'debit': row[4],
-            'credit': row[5],
-            'status': row[6],
-            'notes': row[7] if len(row) > 7 else None
-        }
-    return None
 
